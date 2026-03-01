@@ -22,12 +22,14 @@ class OrderActionsUi {
 }
 
 /// Action ids used for Next step / More (UI demo only; not process truth).
+/// Order: ship > start_packing > start_picking > allocate > release > close.
 const List<String> kOrderActionPriority = [
   'ship',
   'start_packing',
   'start_picking',
   'allocate',
   'release',
+  'close',
 ];
 
 /// All order-level actions shown in More menu (same set for demo).
@@ -40,12 +42,18 @@ const List<String> kOrderActionIds = [
   'close',
 ];
 
-/// Returns the "next" action by priority: first that is either available or disabled.
-String? nextActionByPriority(OrderActionsUi ui) {
+/// First action from kOrderActionPriority that is in availableActions.
+String? nextAvailableActionByPriority(OrderActionsUi ui) {
   for (final action in kOrderActionPriority) {
-    if (ui.availableActions.contains(action) || ui.disabledActions.containsKey(action)) {
-      return action;
-    }
+    if (ui.availableActions.contains(action)) return action;
+  }
+  return null;
+}
+
+/// First action from kOrderActionPriority that is in disabledActions (fallback when no available).
+String? nextDisabledActionByPriority(OrderActionsUi ui) {
+  for (final action in kOrderActionPriority) {
+    if (ui.disabledActions.containsKey(action)) return action;
   }
   return null;
 }
@@ -63,19 +71,166 @@ String actionIdToLabel(String actionId) {
   }
 }
 
-/// Mock data for Order Details header (demo only).
-/// Use E_* for info dialog, W_* for confirm (OK/Cancel) dialog.
-OrderActionsUi createMockOrderActionsUi() {
+const DisabledActionReason _kReasonDone = DisabledActionReason(
+  code: 'E_DONE_001',
+  message: 'Заказ уже закрыт или отменён.',
+);
+
+const DisabledActionReason _kReasonBusy = DisabledActionReason(
+  code: 'E_BUSY_001',
+  message: 'Действие недоступно: операция уже выполняется.',
+);
+
+/// Mock UI actions by order status (demo only). Uses availableActions/disabledActions only.
+OrderActionsUi createMockOrderActionsUiForStatus(String status) {
+  final s = status.toLowerCase();
+  if (s == 'closed' || s == 'cancelled') {
+    return OrderActionsUi(
+      availableActions: [],
+      disabledActions: {
+        'release': _kReasonDone,
+        'allocate': _kReasonDone,
+        'start_picking': _kReasonDone,
+        'start_packing': _kReasonDone,
+        'ship': _kReasonDone,
+        'close': _kReasonDone,
+      },
+    );
+  }
+  if (s == 'packed') {
+    return OrderActionsUi(
+      availableActions: ['ship'],
+      disabledActions: {
+        'release': _kReasonDone,
+        'allocate': const DisabledActionReason(
+          code: 'E_ALL_001',
+          message: 'Действие недоступно: заказ уже зарезервирован.',
+        ),
+        'start_picking': _kReasonBusy,
+        'start_packing': _kReasonBusy,
+        'close': const DisabledActionReason(
+          code: 'E_CLS_001',
+          message: 'Нельзя закрыть заказ: сначала выполните отгрузку (Shipped).',
+        ),
+      },
+    );
+  }
+  if (s == 'draft') {
+    return OrderActionsUi(
+      availableActions: ['release'],
+      disabledActions: {
+        'allocate': const DisabledActionReason(
+          code: 'E_ALL_002',
+          message: 'Нельзя резервировать: сначала выпустите заказ (Release).',
+        ),
+        'start_picking': _kReasonBusy,
+        'start_packing': _kReasonBusy,
+        'ship': const DisabledActionReason(
+          code: 'E_SHP_001',
+          message: 'Отгрузка доступна только после упаковки (Packed).',
+        ),
+        'close': const DisabledActionReason(
+          code: 'E_CLS_001',
+          message: 'Нельзя закрыть заказ: сначала выполните отгрузку (Shipped).',
+        ),
+      },
+    );
+  }
+  if (s == 'released') {
+    return OrderActionsUi(
+      availableActions: ['allocate'],
+      disabledActions: {
+        'release': _kReasonBusy,
+        'start_picking': const DisabledActionReason(
+          code: 'E_PCK_001',
+          message: 'Нельзя начать отбор: нет зарезервированных количеств.',
+        ),
+        'start_packing': _kReasonBusy,
+        'ship': const DisabledActionReason(
+          code: 'E_SHP_001',
+          message: 'Отгрузка доступна только после упаковки (Packed).',
+        ),
+        'close': const DisabledActionReason(
+          code: 'E_CLS_001',
+          message: 'Нельзя закрыть заказ: сначала выполните отгрузку (Shipped).',
+        ),
+      },
+    );
+  }
+  if (s == 'allocated') {
+    return OrderActionsUi(
+      availableActions: ['start_picking'],
+      disabledActions: {
+        'release': _kReasonBusy,
+        'allocate': _kReasonBusy,
+        'start_packing': const DisabledActionReason(
+          code: 'E_PAK_001',
+          message: 'Нельзя начать упаковку: нет подобранных позиций.',
+        ),
+        'ship': const DisabledActionReason(
+          code: 'E_SHP_001',
+          message: 'Отгрузка доступна только после упаковки (Packed).',
+        ),
+        'close': const DisabledActionReason(
+          code: 'E_CLS_001',
+          message: 'Нельзя закрыть заказ: сначала выполните отгрузку (Shipped).',
+        ),
+      },
+    );
+  }
+  if (s == 'picked') {
+    return OrderActionsUi(
+      availableActions: ['start_packing'],
+      disabledActions: {
+        'release': _kReasonBusy,
+        'allocate': _kReasonBusy,
+        'start_picking': _kReasonBusy,
+        'ship': const DisabledActionReason(
+          code: 'E_SHP_001',
+          message: 'Отгрузка доступна только после упаковки (Packed).',
+        ),
+        'close': const DisabledActionReason(
+          code: 'E_CLS_001',
+          message: 'Нельзя закрыть заказ: сначала выполните отгрузку (Shipped).',
+        ),
+      },
+    );
+  }
+  if (s == 'shipped') {
+    return OrderActionsUi(
+      availableActions: ['close'],
+      disabledActions: {
+        'release': _kReasonBusy,
+        'allocate': _kReasonBusy,
+        'start_picking': _kReasonBusy,
+        'start_packing': _kReasonBusy,
+        'ship': _kReasonBusy,
+        'close': _kReasonBusy,
+      },
+    );
+  }
+  if (s.contains('allocating') || s.contains('picking') || s.contains('packing')) {
+    return OrderActionsUi(
+      availableActions: [],
+      disabledActions: {
+        'release': _kReasonBusy,
+        'allocate': _kReasonBusy,
+        'start_picking': _kReasonBusy,
+        'start_packing': _kReasonBusy,
+        'ship': _kReasonBusy,
+        'close': _kReasonBusy,
+      },
+    );
+  }
+  // Fallback: e.g. On Hold, Shortage, other
   return OrderActionsUi(
-    availableActions: ['release', 'allocate', 'start_picking'],
+    availableActions: ['release', 'allocate'],
     disabledActions: {
-      'start_packing': const DisabledActionReason(
-        code: 'E_PAK_001',
-        message: 'Нельзя начать упаковку: нет подобранных позиций.',
-      ),
+      'start_picking': _kReasonBusy,
+      'start_packing': _kReasonBusy,
       'ship': const DisabledActionReason(
-        code: 'W_SHP_001',
-        message: 'Отгружается меньше запланированного. Недостача будет зафиксирована как Short.',
+        code: 'E_SHP_001',
+        message: 'Отгрузка доступна только после упаковки (Packed).',
       ),
       'close': const DisabledActionReason(
         code: 'E_CLS_001',

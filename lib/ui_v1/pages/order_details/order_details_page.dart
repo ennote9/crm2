@@ -43,30 +43,31 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
   @override
   void initState() {
     super.initState();
-    _actionsUi = createMockOrderActionsUi();
+    _actionsUi = createMockOrderActionsUiForStatus(widget.payload.status);
   }
 
-  String? get _nextAction => nextActionByPriority(_actionsUi);
+  String? get _nextAction =>
+      nextAvailableActionByPriority(_actionsUi) ?? nextDisabledActionByPriority(_actionsUi);
   bool get _nextEnabled =>
       _nextAction != null && _actionsUi.availableActions.contains(_nextAction);
   DisabledActionReason? get _nextDisabledReason =>
       _nextAction != null ? _actionsUi.disabledActions[_nextAction] : null;
 
   Future<void> _onNextStepPressed() async {
-    if (_nextEnabled) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${actionIdToLabel(_nextAction!)} (placeholder)')),
-      );
-      return;
-    }
+    if (!_nextEnabled) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${actionIdToLabel(_nextAction!)} (placeholder)')),
+    );
+  }
+
+  Future<void> _showNextStepReason() async {
     final reason = _nextDisabledReason;
-    if (reason != null) {
-      await showOrderActionReasonDialog(
-        context,
-        code: reason.code,
-        message: reason.message,
-      );
-    }
+    if (reason == null || !mounted) return;
+    await showOrderActionReasonDialog(
+      context,
+      code: reason.code,
+      message: reason.message,
+    );
   }
 
   Future<void> _onMoreActionSelected(String actionId) async {
@@ -156,7 +157,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                                   ? 'Next step'
                                   : (nextReasonTooltip ?? 'No next action'),
                               child: FilledButton(
-                                onPressed: _nextAction != null ? _onNextStepPressed : null,
+                                onPressed: _nextEnabled ? _onNextStepPressed : null,
                                 style: FilledButton.styleFrom(
                                   minimumSize: Size(0, density.buttonHeight),
                                 ),
@@ -167,7 +168,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                               SizedBox(width: s.xxs),
                               IconButton(
                                 icon: const Icon(Icons.info_outline, size: 20),
-                                onPressed: _onNextStepPressed,
+                                onPressed: _showNextStepReason,
                                 tooltip: nextReasonTooltip,
                                 style: IconButton.styleFrom(
                                   minimumSize: Size(density.buttonHeight, density.buttonHeight),
