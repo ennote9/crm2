@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../icons/ui_icons.dart';
 import '../../theme/density.dart';
 import '../../theme/tokens.dart';
 
@@ -159,7 +160,14 @@ class _CommandToolbarContent extends StatelessWidget {
                       minimumSize: Size(0, density.buttonHeight),
                       padding: EdgeInsets.symmetric(horizontal: s.sm),
                     ),
-                    child: const Text('Filters'),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(UiIcons.filterList, size: 20),
+                        SizedBox(width: 6),
+                        Text('Filters'),
+                      ],
+                    ),
                   ),
                   SizedBox(width: s.sm),
                   _ViewSelector(
@@ -170,7 +178,7 @@ class _CommandToolbarContent extends StatelessWidget {
                   ),
                   SizedBox(width: s.sm),
                   PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_horiz),
+                    icon: const Icon(UiIcons.moreHoriz),
                     tooltip: 'More',
                     padding: EdgeInsets.zero,
                     onSelected: (value) {
@@ -184,7 +192,7 @@ class _CommandToolbarContent extends StatelessWidget {
                       const PopupMenuItem(
                         value: 'reset',
                         child: ListTile(
-                          leading: Icon(Icons.refresh, size: 20),
+                          leading: Icon(UiIcons.refresh, size: 20),
                           title: Text('Reset'),
                           contentPadding: EdgeInsets.zero,
                           visualDensity: VisualDensity.compact,
@@ -283,7 +291,7 @@ class _SearchField extends StatelessWidget {
             listenable: controller,
             builder: (_, _) => controller.text.isNotEmpty
                 ? IconButton(
-                    icon: const Icon(Icons.close, size: 18),
+                    icon: const Icon(UiIcons.close, size: 18),
                     onPressed: onClear,
                     style: IconButton.styleFrom(
                       minimumSize: const Size(32, 32),
@@ -340,9 +348,11 @@ class _ViewSelector extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            const Icon(UiIcons.view, size: 20),
+            const SizedBox(width: 4),
             Text('View: ${_label(displayId)}'),
             const SizedBox(width: 4),
-            const Icon(Icons.arrow_drop_down, size: 20),
+            const Icon(UiIcons.arrowDropDown, size: 20),
           ],
         ),
       ),
@@ -373,7 +383,7 @@ class _FilterChip extends StatelessWidget {
     final theme = Theme.of(context);
     return InputChip(
       label: Text(label, style: theme.textTheme.labelSmall),
-      deleteIcon: const Icon(Icons.close, size: 16),
+      deleteIcon: const Icon(UiIcons.close, size: 16),
       onDeleted: onRemove,
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       visualDensity: VisualDensity.compact,

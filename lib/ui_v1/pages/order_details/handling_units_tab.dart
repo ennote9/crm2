@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../components/chips/index.dart';
 import '../../components/data_grid/index.dart';
 import '../../demo_data/demo_data.dart';
+import '../../icons/ui_icons.dart';
 import '../../theme/density.dart';
 import '../../theme/tokens.dart';
 
@@ -170,7 +171,7 @@ class _HandlingUnitsTabState extends State<HandlingUnitsTab> with AutomaticKeepA
                           border: const OutlineInputBorder(),
                           suffixIcon: _searchController.text.isNotEmpty
                               ? IconButton(
-                                  icon: const Icon(Icons.clear, size: 18),
+                                  icon: const Icon(UiIcons.clear, size: 18),
                                   onPressed: () {
                                     _searchController.clear();
                                     setState(() {});
@@ -248,7 +249,7 @@ void _showHuDetailDrawer(BuildContext context, DemoHandlingUnit hu) {
                           maxLines: 1,
                         ),
                       ),
-                      IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(context).pop(), tooltip: 'Close'),
+                      IconButton(icon: const Icon(UiIcons.close), onPressed: () => Navigator.of(context).pop(), tooltip: 'Close'),
                     ],
                   ),
                 ),
@@ -291,7 +292,7 @@ void _showHuDetailBottomSheet(BuildContext context, DemoHandlingUnit hu) {
                 Expanded(
                   child: Text(hu.huNo, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis, maxLines: 1),
                 ),
-                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(context).pop(), tooltip: 'Close'),
+                IconButton(icon: const Icon(UiIcons.close), onPressed: () => Navigator.of(context).pop(), tooltip: 'Close'),
               ],
             ),
           ),

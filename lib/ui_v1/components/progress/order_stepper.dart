@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../icons/ui_icons.dart';
 import '../../theme/density.dart';
 import '../../theme/tokens.dart';
 
@@ -74,7 +75,7 @@ class UiV1OrderStepper extends StatelessWidget {
                       Padding(
                         padding: EdgeInsets.symmetric(horizontal: s.xxs),
                         child: Icon(
-                          Icons.chevron_right,
+                          UiIcons.chevronRight,
                           size: 14,
                           color: _stepColor(i, isCancelled, colors),
                         ),
@@ -137,7 +138,7 @@ class _StepChip extends StatelessWidget {
     } else if (isCompleted) {
       bg = colors.success.withValues(alpha: 0.15);
       fg = colors.success;
-      trailing = Icon(Icons.check, size: 12, color: colors.success);
+      trailing = Icon(UiIcons.check, size: 12, color: colors.success);
     } else if (isCurrent) {
       bg = colors.accentSubtle;
       fg = colors.accent;

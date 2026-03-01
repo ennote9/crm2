@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../utils/nav_item.dart';
 import 'sidebar.dart';
+import 'sidebar_v2.dart';
 import 'topbar.dart';
+
+/// Use Sidebar v2 (expanded/collapsed with round toggle) when true; otherwise v1.
+const bool kUseSidebarV2 = true;
 
 // --- 4 responsive modes ---
 // wide:   window >= 1000  → full sidebar + grid
@@ -75,13 +79,22 @@ class _UiV1AppShellState extends State<UiV1AppShell> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  UiV1Sidebar(
-                    collapsed: effectiveCollapsed,
-                    onToggleCollapsed: () => setState(() => _collapsed = !_collapsed),
-                    currentNavId: widget.currentNavId,
-                    onNavSelected: widget.onNavSelected,
-                    navItems: widget.navItems,
-                  ),
+                  if (kUseSidebarV2)
+                    UiV1SidebarV2(
+                      collapsed: effectiveCollapsed,
+                      onToggleCollapsed: () => setState(() => _collapsed = !_collapsed),
+                      currentNavId: widget.currentNavId,
+                      onNavSelected: widget.onNavSelected,
+                      navItems: widget.navItems,
+                    )
+                  else
+                    UiV1Sidebar(
+                      collapsed: effectiveCollapsed,
+                      onToggleCollapsed: () => setState(() => _collapsed = !_collapsed),
+                      currentNavId: widget.currentNavId,
+                      onNavSelected: widget.onNavSelected,
+                      navItems: widget.navItems,
+                    ),
                   Expanded(child: content),
                 ],
               ),

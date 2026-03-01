@@ -1,14 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:crm2/ui_v1/demo_data/demo_data.dart';
 import 'package:crm2/ui_v1/ui_v1.dart';
 
-/// Dev switch: true = UiV1PlaygroundPage (ui_v1 theme), false = legacy MyHomePage.
+/// Dev switch: true = UiV1RootPage (ui_v1), false = legacy MyHomePage.
 const bool kUseUiV1 = true;
 
 void main() {
-  if (kUseUiV1) {
-    demoRepository.seed();
-  }
   runApp(kUseUiV1 ? const _UiV1App() : const MyApp());
 }
 
@@ -31,7 +27,7 @@ class _UiV1AppState extends State<_UiV1App> {
       theme: getTheme(Brightness.light, UiV1Density.dense),
       darkTheme: getTheme(Brightness.dark, UiV1Density.dense),
       themeMode: _themeMode,
-      home: UiV1MainPage(
+      home: UiV1RootPage(
         listState: _ordersListState,
         onThemeToggle: () {
           setState(() {

@@ -8,6 +8,7 @@ import '../../components/chips/index.dart';
 import '../../components/data_grid/index.dart';
 import '../../components/toolbar/index.dart';
 import '../../demo_data/demo_data.dart';
+import '../../icons/ui_icons.dart';
 import '../../theme/density.dart';
 import '../order_details/order_details_page.dart';
 
@@ -415,7 +416,7 @@ class _OrdersCardList extends StatelessWidget {
               Text(errorMessage!, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.error)),
               const SizedBox(height: 16),
               if (onRetry != null)
-                FilledButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh), label: const Text('Retry')),
+                FilledButton.icon(onPressed: onRetry, icon: const Icon(UiIcons.refresh), label: const Text('Retry')),
             ],
           ),
         ),
@@ -472,7 +473,7 @@ class _OrdersCardList extends StatelessWidget {
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.more_horiz, size: 20),
+                          icon: const Icon(UiIcons.moreHoriz, size: 20),
                           onPressed: () => onRowActions(row),
                           tooltip: 'Actions',
                           style: IconButton.styleFrom(

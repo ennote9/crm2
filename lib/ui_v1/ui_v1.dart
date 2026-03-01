@@ -9,6 +9,7 @@ export 'utils/nav_item.dart';
 export 'pages/playground/orders_list_state.dart';
 export 'pages/playground/playground_page.dart';
 export 'pages/home/ui_v1_main_page.dart';
+export 'pages/root/ui_v1_root_page.dart';
 export 'pages/orders/orders_page.dart';
 export 'pages/orders/orders_worklist_page.dart';
 export 'pages/order_details/order_details_page.dart';

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../demo_data/demo_data.dart';
+import '../../icons/ui_icons.dart';
 import '../../theme/density.dart';
 import '../../theme/tokens.dart';
 import 'models/order_event.dart';
@@ -205,7 +206,7 @@ class _EventsTabState extends State<EventsTab> with AutomaticKeepAliveClientMixi
                           border: const OutlineInputBorder(),
                           suffixIcon: _searchController.text.isNotEmpty
                               ? IconButton(
-                                  icon: const Icon(Icons.clear, size: 18),
+                                  icon: const Icon(UiIcons.clear, size: 18),
                                   onPressed: () {
                                     _searchController.clear();
                                     setState(() {});
@@ -364,6 +365,8 @@ class _TimelineRow extends StatelessWidget {
 
   static const double _lineWidth = 2;
   static const double _dotSize = 10;
+  static const double _dotSizeException = 14;
+  static const double _dotRingStrokeException = 2.5;
   static const double _laneWidth = 20;
 
   @override
@@ -371,134 +374,181 @@ class _TimelineRow extends StatelessWidget {
     final category = event.category;
     final isException = category == DemoEventCategory.exception;
     final isSystem = category == DemoEventCategory.system;
+    final errorColor = theme.colorScheme.error;
 
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Time column (narrow)
-          SizedBox(
-            width: 88,
-            child: Padding(
-              padding: EdgeInsets.only(top: 2),
-              child: Text(
-                formatTs(event.occurredAt),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontSize: 11,
-                ),
-                overflow: TextOverflow.ellipsis,
-                maxLines: 2,
+    final rowContent = Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Time column (narrow)
+        SizedBox(
+          width: 88,
+          child: Padding(
+            padding: EdgeInsets.only(top: 2),
+            child: Text(
+              formatTs(event.occurredAt),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontSize: 11,
               ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
             ),
           ),
-          SizedBox(width: s.xxs),
-          // Vertical line + dot
-          SizedBox(
-            width: _laneWidth,
-            child: Column(
-              children: [
-                if (!isFirstInGroup) Container(height: 6, width: _lineWidth, color: theme.colorScheme.outlineVariant.withValues(alpha: 0.6)),
+        ),
+        SizedBox(width: s.xxs),
+        // Vertical line + dot
+        SizedBox(
+          width: _laneWidth,
+          child: Column(
+            children: [
+              if (!isFirstInGroup) Container(height: 6, width: _lineWidth, color: theme.colorScheme.outlineVariant.withValues(alpha: 0.6)),
+              if (isException)
+                SizedBox(
+                  width: _dotSizeException,
+                  height: _dotSizeException,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Outer ring
+                      Container(
+                        width: _dotSizeException,
+                        height: _dotSizeException,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.transparent,
+                          border: Border.all(color: errorColor, width: _dotRingStrokeException),
+                        ),
+                      ),
+                      // Inner dot
+                      Container(
+                        width: _dotSize,
+                        height: _dotSize,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: errorColor,
+                          border: Border.all(color: theme.colorScheme.surface, width: 1),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
                 Container(
                   width: _dotSize,
                   height: _dotSize,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: isException
-                        ? theme.colorScheme.error
-                        : (isSystem ? theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5) : theme.colorScheme.primary),
+                    color: isSystem ? theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5) : theme.colorScheme.primary,
                     border: Border.all(
                       color: theme.colorScheme.surface,
                       width: 1.5,
                     ),
                   ),
                 ),
-                if (!isLastInGroup) Expanded(child: Container(width: _lineWidth, color: theme.colorScheme.outlineVariant.withValues(alpha: 0.6))),
-                if (isLastInGroup) SizedBox(height: 6),
-              ],
-            ),
+              if (!isLastInGroup) Expanded(child: Container(width: _lineWidth, color: theme.colorScheme.outlineVariant.withValues(alpha: 0.6))),
+              if (isLastInGroup) SizedBox(height: 6),
+            ],
           ),
-          SizedBox(width: s.xs),
-          // Card + optional badge
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(bottom: s.xs),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (isException || isSystem)
-                    Padding(
-                      padding: EdgeInsets.only(bottom: 2),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: isException
-                                  ? theme.colorScheme.errorContainer.withValues(alpha: 0.8)
-                                  : theme.colorScheme.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              isException ? 'EXCEPTION' : 'SYSTEM',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w600,
-                                color: isException ? theme.colorScheme.onErrorContainer : theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xxs),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-                      borderRadius: BorderRadius.circular(UiV1RadiusTokens.standard.sm),
-                      border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      mainAxisSize: MainAxisSize.min,
+        ),
+        SizedBox(width: s.xs),
+        // Card + optional badge
+        Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(bottom: s.xs),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (isException || isSystem)
+                  Padding(
+                    padding: EdgeInsets.only(bottom: 2),
+                    child: Row(
                       children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                eventCodeToLabel(event.code),
-                                style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                              ),
-                            ),
-                            Text(
-                              event.actor,
-                              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 1,
-                            ),
-                          ],
-                        ),
-                        if (event.payload != null && event.payload!.isNotEmpty) ...[
-                          SizedBox(height: 2),
-                          Text(
-                            event.payload!,
-                            style: theme.textTheme.bodySmall?.copyWith(fontSize: 12),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 2,
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isException ? 6 : 4,
+                            vertical: isException ? 2 : 1,
                           ),
-                        ],
+                          decoration: BoxDecoration(
+                            color: isException
+                                ? theme.colorScheme.errorContainer
+                                : theme.colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            isException ? 'EXCEPTION' : 'SYSTEM',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              fontSize: isException ? 10 : 9,
+                              fontWeight: FontWeight.w700,
+                              color: isException ? theme.colorScheme.onErrorContainer : theme.colorScheme.onSurfaceVariant,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                ],
-              ),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xxs),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(UiV1RadiusTokens.standard.sm),
+                    border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              eventCodeToLabel(event.code),
+                              style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          ),
+                          Text(
+                            event.actor,
+                            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ],
+                      ),
+                      if (event.payload != null && event.payload!.isNotEmpty) ...[
+                        SizedBox(height: 2),
+                        Text(
+                          event.payload!,
+                          style: theme.textTheme.bodySmall?.copyWith(fontSize: 12),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 2,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
+
+    if (isException) {
+      return IntrinsicHeight(
+        child: Container(
+          decoration: BoxDecoration(
+            color: theme.colorScheme.errorContainer.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: rowContent,
+        ),
+      );
+    }
+
+    return IntrinsicHeight(child: rowContent);
   }
 }

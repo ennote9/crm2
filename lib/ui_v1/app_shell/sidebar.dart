@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../icons/ui_icons.dart';
 import '../utils/nav_item.dart';
 
 List<Widget> _buildNavTiles(
@@ -119,9 +120,10 @@ class _NavTile extends StatelessWidget {
     const padding = 12.0;
     const iconSize = 24.0;
 
+    final iconData = UiIcons.iconForNavItem(item);
     final content = collapsed
         ? Icon(
-            item.icon,
+            iconData,
             size: iconSize,
             color: isActive
                 ? colorScheme.primary
@@ -131,7 +133,7 @@ class _NavTile extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                item.icon,
+                iconData,
                 size: iconSize,
                 color: isActive
                     ? colorScheme.primary
@@ -206,7 +208,7 @@ class _CollapseButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return IconButton(
       onPressed: onPressed,
-      icon: Icon(collapsed ? Icons.chevron_right : Icons.chevron_left),
+      icon: Icon(collapsed ? UiIcons.collapseRight : UiIcons.collapseLeft),
       tooltip: collapsed ? 'Expand sidebar' : 'Collapse sidebar',
     );
   }

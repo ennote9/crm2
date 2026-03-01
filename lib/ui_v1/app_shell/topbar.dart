@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../icons/ui_icons.dart';
+
 /// Top bar: theme toggle placeholder, user menu placeholder.
 /// On narrow width (< 350) replaces theme/user buttons with one "More" PopupMenuButton.
 class UiV1Topbar extends StatelessWidget {
@@ -42,7 +44,7 @@ class UiV1Topbar extends StatelessWidget {
             if (onMenuTap != null)
               IconButton(
                 onPressed: onMenuTap,
-                icon: const Icon(Icons.menu),
+                icon: const Icon(UiIcons.menu),
                 tooltip: 'Menu',
               )
             else
@@ -50,7 +52,7 @@ class UiV1Topbar extends StatelessWidget {
             Expanded(child: Container()),
             if (narrow)
               PopupMenuButton<void>(
-                icon: const Icon(Icons.more_vert),
+                icon: const Icon(UiIcons.moreVert),
                 tooltip: 'More',
                 padding: EdgeInsets.zero,
                 itemBuilder: (context) => [
@@ -58,7 +60,7 @@ class UiV1Topbar extends StatelessWidget {
                     onTap: () => onThemeToggle?.call(),
                     child: const Row(
                       children: [
-                        Icon(Icons.brightness_6_outlined, size: 20),
+                        Icon(UiIcons.lightMode, size: 20),
                         SizedBox(width: 12),
                         Text('Theme'),
                       ],
@@ -68,7 +70,7 @@ class UiV1Topbar extends StatelessWidget {
                     onTap: () => onUserMenuTap?.call(),
                     child: const Row(
                       children: [
-                        Icon(Icons.person_outline, size: 20),
+                        Icon(UiIcons.person, size: 20),
                         SizedBox(width: 12),
                         Text('User menu'),
                       ],
@@ -79,13 +81,13 @@ class UiV1Topbar extends StatelessWidget {
             else ...[
               IconButton(
                 onPressed: onThemeToggle,
-                icon: const Icon(Icons.brightness_6_outlined),
+                icon: const Icon(UiIcons.lightMode),
                 tooltip: 'Theme (placeholder)',
               ),
               const SizedBox(width: 8),
               IconButton(
                 onPressed: onUserMenuTap,
-                icon: const Icon(Icons.person_outline),
+                icon: const Icon(UiIcons.person),
                 tooltip: 'User menu (placeholder)',
               ),
             ],

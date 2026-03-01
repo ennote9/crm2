@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../icons/ui_icons.dart';
 import '../../theme/density.dart';
 import 'data_grid_column.dart';
 
@@ -315,7 +316,7 @@ class _UiV1DataGridState<T> extends State<UiV1DataGrid<T>> {
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: widget.onRetry,
-              icon: const Icon(Icons.refresh),
+              icon: const Icon(UiIcons.refresh),
               label: const Text('Retry'),
             ),
           ],
@@ -415,7 +416,7 @@ class _DataRowWidget<T> extends StatelessWidget {
                 SizedBox(
                   width: _actionsWidth,
                   child: IconButton(
-                    icon: const Icon(Icons.more_horiz),
+                    icon: const Icon(UiIcons.moreHoriz),
                     onPressed: onRowActionsTap,
                     tooltip: 'Actions',
                   ),

@@ -8,6 +8,7 @@ import '../../components/chips/index.dart';
 import '../../components/dialogs/index.dart';
 import '../../components/progress/index.dart';
 import '../../demo_data/demo_data.dart';
+import '../../icons/ui_icons.dart';
 import '../../theme/density.dart';
 import '../../theme/tokens.dart';
 import 'order_actions_model.dart';
@@ -222,7 +223,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                     Row(
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.arrow_back),
+                          icon: const Icon(UiIcons.arrowBack),
                           onPressed: () => Navigator.of(context).pop(),
                           tooltip: 'Back',
                         ),
@@ -263,18 +264,19 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                                       ? 'Next step (confirmation required)'
                                       : 'Next step')
                                   : (nextInfoTooltip ?? 'No next action'),
-                              child: FilledButton(
+                              child: FilledButton.icon(
                                 onPressed: _nextEnabled ? _onNextStepPressed : null,
                                 style: FilledButton.styleFrom(
                                   minimumSize: Size(0, density.buttonHeight),
                                 ),
-                                child: const Text('Next step'),
+                                icon: const Icon(UiIcons.arrowForward, size: 20),
+                                label: const Text('Next step'),
                               ),
                             ),
                             if (showNextStepInfoIcon) ...[
                               SizedBox(width: s.xxs),
                               IconButton(
-                                icon: const Icon(Icons.info_outline, size: 20),
+                                icon: const Icon(UiIcons.info, size: 20),
                                 onPressed: _showNextStepReason,
                                 tooltip: nextInfoTooltip,
                                 style: IconButton.styleFrom(
@@ -287,7 +289,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                         ),
                         SizedBox(width: s.xs),
                         PopupMenuButton<String>(
-                          icon: const Icon(Icons.more_horiz),
+                          icon: const Icon(UiIcons.moreHoriz),
                           tooltip: 'More',
                           onSelected: _onMoreActionSelected,
                           itemBuilder: (context) => kOrderActionIds.map((actionId) {
