@@ -18,6 +18,7 @@ class _UiV1App extends StatefulWidget {
 
 class _UiV1AppState extends State<_UiV1App> {
   ThemeMode _themeMode = ThemeMode.light;
+  final OrdersListState _ordersListState = OrdersListState();
 
   @override
   Widget build(BuildContext context) {
@@ -27,6 +28,7 @@ class _UiV1AppState extends State<_UiV1App> {
       darkTheme: getTheme(Brightness.dark, UiV1Density.dense),
       themeMode: _themeMode,
       home: UiV1PlaygroundPage(
+        listState: _ordersListState,
         onThemeToggle: () {
           setState(() {
             _themeMode = _themeMode == ThemeMode.light

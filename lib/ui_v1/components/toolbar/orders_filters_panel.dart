@@ -91,7 +91,7 @@ Future<void> showUiV1OrdersFiltersPanel({
                   ),
                   SizedBox(height: s.xxs),
                   DropdownButtonFormField<String>(
-                    value: warehouse,
+                    initialValue: warehouse,
                     decoration: InputDecoration(
                       isDense: true,
                       contentPadding: EdgeInsets.symmetric(horizontal: s.sm, vertical: 6),

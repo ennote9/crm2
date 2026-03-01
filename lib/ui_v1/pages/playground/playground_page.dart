@@ -8,12 +8,14 @@ import '../../components/data_grid/index.dart';
 import '../../components/toolbar/index.dart';
 import '../../theme/density.dart';
 import '../../utils/nav_item.dart';
+import 'orders_list_state.dart';
 import '../order_details/order_details_page.dart';
 
 /// Demo page that shows the ui_v1 App Shell with DataGrid demo (Orders mock).
 class UiV1PlaygroundPage extends StatefulWidget {
-  const UiV1PlaygroundPage({super.key, this.onThemeToggle});
+  const UiV1PlaygroundPage({super.key, required this.listState, this.onThemeToggle});
 
+  final OrdersListState listState;
   final VoidCallback? onThemeToggle;
 
   @override
@@ -34,28 +36,32 @@ class _UiV1PlaygroundPageState extends State<UiV1PlaygroundPage> {
   Set<String> _selectedIds = {};
   late List<OrderMock> _mockOrders;
 
-  // Command toolbar state
   late TextEditingController _searchController;
   late FocusNode _searchFocusNode;
-  Set<String> _statusFilters = {};
-  String? _warehouseFilter;
-  UiV1WorklistViewId _viewId = UiV1WorklistViewId.all;
-  bool _isCustomView = false;
-  bool _showStatistics = false;
 
   @override
   void initState() {
     super.initState();
     _mockOrders = _createMockOrders();
-    _searchController = TextEditingController();
+    _searchController = TextEditingController(text: widget.listState.searchText);
     _searchFocusNode = FocusNode();
+    widget.listState.addListener(_onListStateChanged);
   }
 
   @override
   void dispose() {
+    widget.listState.removeListener(_onListStateChanged);
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
+  }
+
+  void _onListStateChanged() {
+    if (!mounted) return;
+    if (_searchController.text != widget.listState.searchText) {
+      _searchController.text = widget.listState.searchText;
+    }
+    setState(() {});
   }
 
   static List<OrderMock> _createMockOrders() {
@@ -92,8 +98,9 @@ class _UiV1PlaygroundPageState extends State<UiV1PlaygroundPage> {
   }
 
   List<OrderMock> _applyFilters(List<OrderMock> list) {
+    final st = widget.listState;
     var result = list;
-    final query = _searchController.text.trim().toLowerCase();
+    final query = st.searchText.trim().toLowerCase();
     if (query.isNotEmpty) {
       result = result.where((o) =>
         o.orderNo.toLowerCase().contains(query) ||
@@ -101,13 +108,13 @@ class _UiV1PlaygroundPageState extends State<UiV1PlaygroundPage> {
         o.status.toLowerCase().contains(query),
       ).toList();
     }
-    if (_statusFilters.isNotEmpty) {
-      result = result.where((o) => _statusFilters.contains(o.status)).toList();
+    if (st.statusFilters.isNotEmpty) {
+      result = result.where((o) => st.statusFilters.contains(o.status)).toList();
     }
-    if (_warehouseFilter != null) {
-      result = result.where((o) => o.warehouse == _warehouseFilter).toList();
+    if (st.warehouseFilter != null) {
+      result = result.where((o) => o.warehouse == st.warehouseFilter).toList();
     }
-    switch (_viewId) {
+    switch (st.viewId) {
       case UiV1WorklistViewId.onHold:
         result = result.where((o) => o.status == 'On Hold').toList();
         break;
@@ -127,68 +134,62 @@ class _UiV1PlaygroundPageState extends State<UiV1PlaygroundPage> {
   }
 
   void _applyViewPreset(UiV1WorklistViewId viewId) {
-    setState(() {
-      _viewId = viewId;
-      _isCustomView = false;
-      switch (viewId) {
-        case UiV1WorklistViewId.all:
-          _statusFilters = {};
-          _warehouseFilter = null;
-          break;
-        case UiV1WorklistViewId.onHold:
-          _statusFilters = {'On Hold'};
-          _warehouseFilter = null;
-          break;
-        case UiV1WorklistViewId.shortage:
-          _statusFilters = {'Shortage'};
-          _warehouseFilter = null;
-          break;
-        case UiV1WorklistViewId.today:
-          _statusFilters = {};
-          _warehouseFilter = null;
-          break;
-        case UiV1WorklistViewId.custom:
-          break;
-        default:
-          _statusFilters = {};
-          _warehouseFilter = null;
-      }
-    });
+    widget.listState.setViewId(viewId);
+    widget.listState.setIsCustomView(false);
+    switch (viewId) {
+      case UiV1WorklistViewId.all:
+        widget.listState.setStatusFilters({});
+        widget.listState.setWarehouseFilter(null);
+        break;
+      case UiV1WorklistViewId.onHold:
+        widget.listState.setStatusFilters({'On Hold'});
+        widget.listState.setWarehouseFilter(null);
+        break;
+      case UiV1WorklistViewId.shortage:
+        widget.listState.setStatusFilters({'Shortage'});
+        widget.listState.setWarehouseFilter(null);
+        break;
+      case UiV1WorklistViewId.today:
+        widget.listState.setStatusFilters({});
+        widget.listState.setWarehouseFilter(null);
+        break;
+      case UiV1WorklistViewId.custom:
+      default:
+        widget.listState.setStatusFilters({});
+        widget.listState.setWarehouseFilter(null);
+    }
   }
 
   void _onFiltersApplied(UiV1OrdersFiltersResult result) {
-    setState(() {
-      _statusFilters = result.statuses;
-      _warehouseFilter = result.warehouse;
-      _isCustomView = true;
-    });
+    widget.listState.setStatusFilters(result.statuses);
+    widget.listState.setWarehouseFilter(result.warehouse);
+    widget.listState.setIsCustomView(true);
   }
 
   List<UiV1FilterChipItem> get _filterChips {
+    final st = widget.listState;
     final chips = <UiV1FilterChipItem>[];
-    for (final s in _statusFilters) {
+    for (final s in st.statusFilters) {
       chips.add(UiV1FilterChipItem(
         label: 'Status: $s',
-        onRemove: () => setState(() => _statusFilters = _statusFilters..remove(s)),
+        onRemove: () {
+          final next = Set<String>.from(st.statusFilters)..remove(s);
+          widget.listState.setStatusFilters(next);
+        },
       ));
     }
-    if (_warehouseFilter != null) {
+    if (st.warehouseFilter != null) {
       chips.add(UiV1FilterChipItem(
-        label: 'Warehouse: $_warehouseFilter',
-        onRemove: () => setState(() => _warehouseFilter = null),
+        label: 'Warehouse: ${st.warehouseFilter}',
+        onRemove: () => widget.listState.setWarehouseFilter(null),
       ));
     }
     return chips;
   }
 
   void _onMoreReset() {
-    setState(() {
-      _searchController.clear();
-      _statusFilters = {};
-      _warehouseFilter = null;
-      _viewId = UiV1WorklistViewId.all;
-      _isCustomView = false;
-    });
+    widget.listState.reset();
+    _searchController.text = widget.listState.searchText;
   }
 
   void _onDevStateSelected(String id) {
@@ -217,7 +218,7 @@ class _UiV1PlaygroundPageState extends State<UiV1PlaygroundPage> {
     );
   }
 
-  /// Stats counts from current filtered list (for display when showStatistics is true).
+  /// Stats counts from current filtered list (when showStatistics is true).
   (int total, int inProgress, int onHold, int shortage) get _statsCounts {
     final list = _demoState == _DemoState.data ? _applyFilters(_mockOrders) : <OrderMock>[];
     int inProgress = 0;
@@ -293,27 +294,27 @@ class _UiV1PlaygroundPageState extends State<UiV1PlaygroundPage> {
               UiV1CommandToolbar(
                 searchController: _searchController,
                 searchFocusNode: _searchFocusNode,
-                onSearchSubmit: () => setState(() {}),
+                onSearchSubmit: () => widget.listState.setSearchText(_searchController.text),
                 onSearchClear: () {
                   _searchController.clear();
-                  setState(() {});
+                  widget.listState.setSearchText('');
                 },
                 filterChips: _filterChips,
                 onFiltersTap: () => showUiV1OrdersFiltersPanel(
                   context: context,
-                  initialStatuses: _statusFilters,
-                  initialWarehouse: _warehouseFilter,
+                  initialStatuses: widget.listState.statusFilters,
+                  initialWarehouse: widget.listState.warehouseFilter,
                   onApply: _onFiltersApplied,
                 ),
-                currentViewId: _viewId,
-                isCustomView: _isCustomView,
+                currentViewId: widget.listState.viewId,
+                isCustomView: widget.listState.isCustomView,
                 onViewSelected: _applyViewPreset,
                 onMoreReset: _onMoreReset,
                 onDevStateSelected: _onDevStateSelected,
-                showStatistics: _showStatistics,
-                onShowStatisticsChanged: (v) => setState(() => _showStatistics = v),
+                showStatistics: widget.listState.showStatistics,
+                onShowStatisticsChanged: (v) => widget.listState.setShowStatistics(v),
               ),
-              if (_showStatistics) ...[
+              if (widget.listState.showStatistics) ...[
                 UiV1OrdersStatsPanel(
                   total: _statsCounts.$1,
                   inProgress: _statsCounts.$2,

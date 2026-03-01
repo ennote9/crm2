@@ -157,7 +157,10 @@ class _UiV1DataGridState<T> extends State<UiV1DataGrid<T>> {
                   selected: selected,
                   focused: focused,
                   showRowActions: widget.showRowActions,
-                  onTap: () => setState(() => _focusedRowIndex = index),
+                  onTap: () {
+                    setState(() => _focusedRowIndex = index);
+                    widget.onRowOpen?.call(row);
+                  },
                   onCheckboxTap: () => _toggleSelection(id),
                   onRowActionsTap: widget.onRowActions != null
                       ? () => widget.onRowActions!(row)

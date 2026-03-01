@@ -1,11 +1,14 @@
-// Order Details (Object Page) v1 — UI skeleton per ObjectPage_Order_Spec.
-// Sticky header, summary strip, tabs. No business logic / available_actions.
+// Order Details (Object Page) v1 — sticky header, summary strip, tabs.
+// Next step / More driven by available_actions and disabled_actions (mock); no business logic.
 
 import 'package:flutter/material.dart';
 
 import '../../components/chips/index.dart';
+import '../../components/dialogs/index.dart';
 import '../../theme/density.dart';
 import '../../theme/tokens.dart';
+import 'order_actions_model.dart';
+import 'order_lines_tab.dart';
 
 /// Payload to open order details (from list row).
 class OrderDetailsPayload {
@@ -22,13 +25,67 @@ class OrderDetailsPayload {
 }
 
 /// Order Details page: sticky header, summary strip, tabs (Lines / Pick Tasks / HU / Events).
-class OrderDetailsPage extends StatelessWidget {
+class OrderDetailsPage extends StatefulWidget {
   const OrderDetailsPage({
     super.key,
     required this.payload,
   });
 
   final OrderDetailsPayload payload;
+
+  @override
+  State<OrderDetailsPage> createState() => _OrderDetailsPageState();
+}
+
+class _OrderDetailsPageState extends State<OrderDetailsPage> {
+  late final OrderActionsUi _actionsUi;
+
+  @override
+  void initState() {
+    super.initState();
+    _actionsUi = createMockOrderActionsUi();
+  }
+
+  String? get _nextAction => nextActionByPriority(_actionsUi);
+  bool get _nextEnabled =>
+      _nextAction != null && _actionsUi.availableActions.contains(_nextAction);
+  DisabledActionReason? get _nextDisabledReason =>
+      _nextAction != null ? _actionsUi.disabledActions[_nextAction] : null;
+
+  Future<void> _onNextStepPressed() async {
+    if (_nextEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${actionIdToLabel(_nextAction!)} (placeholder)')),
+      );
+      return;
+    }
+    final reason = _nextDisabledReason;
+    if (reason != null) {
+      await showOrderActionReasonDialog(
+        context,
+        code: reason.code,
+        message: reason.message,
+      );
+    }
+  }
+
+  Future<void> _onMoreActionSelected(String actionId) async {
+    if (_actionsUi.availableActions.contains(actionId)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${actionIdToLabel(actionId)} (placeholder)')),
+      );
+      return;
+    }
+    final reason = _actionsUi.disabledActions[actionId];
+    if (reason != null && mounted) {
+      await showOrderActionReasonDialog(
+        context,
+        code: reason.code,
+        message: reason.message,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +96,10 @@ class OrderDetailsPage extends StatelessWidget {
         ? UiV1Tokens.dark
         : UiV1Tokens.light;
     final s = tokens.spacing;
+    final nextReason = _nextDisabledReason;
+    final nextReasonTooltip = nextReason != null
+        ? '${nextReason.code}: ${nextReason.message}'
+        : null;
 
     return DefaultTabController(
       length: 4,
@@ -72,7 +133,7 @@ class OrderDetailsPage extends StatelessWidget {
                           child: Row(
                             children: [
                               Text(
-                                payload.orderNo,
+                                widget.payload.orderNo,
                                 style: theme.textTheme.headlineSmall?.copyWith(
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -81,32 +142,75 @@ class OrderDetailsPage extends StatelessWidget {
                               ),
                               SizedBox(width: s.sm),
                               UiV1StatusChip(
-                                label: payload.status,
-                                variant: UiV1StatusChip.variantFromStatus(payload.status),
+                                label: widget.payload.status,
+                                variant: UiV1StatusChip.variantFromStatus(widget.payload.status),
                               ),
                             ],
                           ),
                         ),
-                        FilledButton(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Next step (placeholder)')),
-                            );
-                          },
-                          style: FilledButton.styleFrom(
-                            minimumSize: Size(0, density.buttonHeight),
-                          ),
-                          child: const Text('Next step'),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Tooltip(
+                              message: _nextEnabled
+                                  ? 'Next step'
+                                  : (nextReasonTooltip ?? 'No next action'),
+                              child: FilledButton(
+                                onPressed: _nextAction != null ? _onNextStepPressed : null,
+                                style: FilledButton.styleFrom(
+                                  minimumSize: Size(0, density.buttonHeight),
+                                ),
+                                child: const Text('Next step'),
+                              ),
+                            ),
+                            if (nextReason != null) ...[
+                              SizedBox(width: s.xxs),
+                              IconButton(
+                                icon: const Icon(Icons.info_outline, size: 20),
+                                onPressed: _onNextStepPressed,
+                                tooltip: nextReasonTooltip,
+                                style: IconButton.styleFrom(
+                                  minimumSize: Size(density.buttonHeight, density.buttonHeight),
+                                  padding: EdgeInsets.zero,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                         SizedBox(width: s.xs),
-                        IconButton(
+                        PopupMenuButton<String>(
                           icon: const Icon(Icons.more_horiz),
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('More (placeholder)')),
-                            );
-                          },
                           tooltip: 'More',
+                          onSelected: _onMoreActionSelected,
+                          itemBuilder: (context) => kOrderActionIds.map((actionId) {
+                            final enabled = _actionsUi.availableActions.contains(actionId);
+                            final reason = _actionsUi.disabledActions[actionId];
+                            return PopupMenuItem<String>(
+                              value: actionId,
+                              child: ListTile(
+                                dense: true,
+                                contentPadding: EdgeInsets.zero,
+                                title: Text(
+                                  actionIdToLabel(actionId),
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: enabled
+                                        ? null
+                                        : theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                                subtitle: reason != null
+                                    ? Text(
+                                        reason.message,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: theme.textTheme.bodySmall?.copyWith(
+                                          color: theme.colorScheme.error,
+                                        ),
+                                      )
+                                    : null,
+                              ),
+                            );
+                          }).toList(),
                         ),
                       ],
                     ),
@@ -155,10 +259,7 @@ class OrderDetailsPage extends StatelessWidget {
             Expanded(
               child: TabBarView(
                 children: [
-                  _TabStub(
-                    title: 'Lines',
-                    mockLines: ['Line 1', 'Line 2', 'Line 3'],
-                  ),
+                  OrderLinesTab(orderNo: widget.payload.orderNo),
                   _TabStub(
                     title: 'Pick Tasks',
                     mockLines: ['Pick task A', 'Pick task B'],

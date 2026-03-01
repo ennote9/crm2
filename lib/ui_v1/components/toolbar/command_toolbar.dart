@@ -281,7 +281,7 @@ class _SearchField extends StatelessWidget {
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(radius)),
           suffixIcon: ListenableBuilder(
             listenable: controller,
-            builder: (_, __) => controller.text.isNotEmpty
+            builder: (_, _) => controller.text.isNotEmpty
                 ? IconButton(
                     icon: const Icon(Icons.close, size: 18),
                     onPressed: onClear,
@@ -328,6 +328,13 @@ class _ViewSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     final displayId = isCustomView ? UiV1WorklistViewId.custom : currentViewId;
     return PopupMenuButton<UiV1WorklistViewId>(
+      onSelected: onSelected,
+      itemBuilder: (context) => [
+        _viewItem(UiV1WorklistViewId.all),
+        _viewItem(UiV1WorklistViewId.onHold),
+        _viewItem(UiV1WorklistViewId.shortage),
+        _viewItem(UiV1WorklistViewId.today),
+      ],
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         child: Row(
@@ -339,13 +346,6 @@ class _ViewSelector extends StatelessWidget {
           ],
         ),
       ),
-      onSelected: onSelected,
-      itemBuilder: (context) => [
-        _viewItem(UiV1WorklistViewId.all),
-        _viewItem(UiV1WorklistViewId.onHold),
-        _viewItem(UiV1WorklistViewId.shortage),
-        _viewItem(UiV1WorklistViewId.today),
-      ],
     );
   }
 
