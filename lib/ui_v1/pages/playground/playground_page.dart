@@ -212,6 +212,7 @@ class _UiV1PlaygroundPageState extends State<UiV1PlaygroundPage> {
             status: row.status,
             warehouse: row.warehouse,
             created: row.created,
+            baseStatus: row.status == 'On Hold' ? 'Allocated' : null,
           ),
         ),
       ),
