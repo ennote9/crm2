@@ -4,13 +4,11 @@ import 'package:flutter/services.dart';
 import '../../theme/density.dart';
 import 'data_grid_column.dart';
 
-const double _checkboxWidth = 48;
-const double _actionsColumnWidth = 40;
-
-/// Minimum table width when horizontal scroll is used (avoids overflow when container is narrow).
-const double _minTableWidth = 560;
+const double _selectionWidth = 48;
+const double _actionsWidth = 48;
 
 /// Data grid v1: full width, sticky header, dense sizing, multi-select, row actions, states, keyboard.
+/// Layout: selection column (48) + data columns (Expanded by flex) + actions column (48). No pixel math.
 class UiV1DataGrid<T> extends StatefulWidget {
   const UiV1DataGrid({
     super.key,
@@ -58,40 +56,6 @@ class _UiV1DataGridState<T> extends State<UiV1DataGrid<T>> {
   void dispose() {
     _focusNode.dispose();
     super.dispose();
-  }
-
-  List<double> _computeWidths(double totalWidth) {
-    final cols = widget.columns;
-    final contentWidth = (totalWidth - _checkboxWidth - (widget.showRowActions ? _actionsColumnWidth : 0))
-        .clamp(0.0, double.infinity);
-    final fixedTotal = cols.where((c) => c.width != null).fold<double>(0, (s, c) => s + c.width!);
-    final flexSum = cols.where((c) => c.width == null).fold<int>(0, (s, c) => s + c.flex);
-    var remainingForFlex = (contentWidth - fixedTotal).clamp(0.0, double.infinity);
-    final widths = <double>[];
-    final flexIndices = <int>[];
-    for (var i = 0; i < cols.length; i++) {
-      final c = cols[i];
-      if (c.width != null) {
-        widths.add(c.width!);
-      } else {
-        flexIndices.add(i);
-        widths.add(0);
-      }
-    }
-    if (flexSum > 0 && flexIndices.isNotEmpty) {
-      var assigned = 0.0;
-      for (var k = 0; k < flexIndices.length; k++) {
-        final i = flexIndices[k];
-        final isLast = k == flexIndices.length - 1;
-        final flex = cols[i].flex;
-        final w = isLast
-            ? (remainingForFlex - assigned).clamp(0.0, double.infinity)
-            : (remainingForFlex * flex / flexSum).floorToDouble();
-        widths[i] = w;
-        assigned += w;
-      }
-    }
-    return widths;
   }
 
   void _toggleSelection(String id) {
@@ -172,67 +136,39 @@ class _UiV1DataGridState<T> extends State<UiV1DataGrid<T>> {
     return Focus(
       focusNode: _focusNode,
       onKeyEvent: _handleKey,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final viewportWidth = constraints.maxWidth;
-          final viewportHeight = constraints.maxHeight;
-          final useHorizontalScroll = viewportWidth < _minTableWidth;
-          final tableWidth = useHorizontalScroll ? _minTableWidth : viewportWidth;
-          final widths = _computeWidths(tableWidth);
-
-          final table = SizedBox(
-            width: tableWidth,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildHeader(context, theme, colorScheme, headerHeight, padX, padY, widths, tableWidth),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: widget.rows.length,
-                    itemBuilder: (context, index) {
-                      final row = widget.rows[index];
-                      final id = widget.rowIdGetter(row);
-                      final selected = widget.selectedIds.contains(id);
-                      final focused = index == _focusedRowIndex;
-                      return _DataRowWidget<T>(
-                        row: row,
-                        columns: widget.columns,
-                        widths: widths,
-                        maxRowWidth: tableWidth,
-                        rowHeight: rowHeight,
-                        padX: padX,
-                        padY: padY,
-                        selected: selected,
-                        focused: focused,
-                        showRowActions: widget.showRowActions,
-                        onTap: () => setState(() => _focusedRowIndex = index),
-                        onCheckboxTap: () => _toggleSelection(id),
-                        onRowActionsTap: widget.onRowActions != null
-                            ? () => widget.onRowActions!(row)
-                            : null,
-                        colorScheme: colorScheme,
-                        theme: theme,
-                      );
-                    },
-                  ),
-                ),
-              ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildHeader(context, theme, colorScheme, headerHeight, padX, padY),
+          Expanded(
+            child: ListView.builder(
+              itemCount: widget.rows.length,
+              itemBuilder: (context, index) {
+                final row = widget.rows[index];
+                final id = widget.rowIdGetter(row);
+                final selected = widget.selectedIds.contains(id);
+                final focused = index == _focusedRowIndex;
+                return _DataRowWidget<T>(
+                  row: row,
+                  columns: widget.columns,
+                  rowHeight: rowHeight,
+                  padX: padX,
+                  padY: padY,
+                  selected: selected,
+                  focused: focused,
+                  showRowActions: widget.showRowActions,
+                  onTap: () => setState(() => _focusedRowIndex = index),
+                  onCheckboxTap: () => _toggleSelection(id),
+                  onRowActionsTap: widget.onRowActions != null
+                      ? () => widget.onRowActions!(row)
+                      : null,
+                  colorScheme: colorScheme,
+                  theme: theme,
+                );
+              },
             ),
-          );
-
-          if (useHorizontalScroll) {
-            return SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: SizedBox(
-                width: tableWidth,
-                height: viewportHeight,
-                child: table,
-              ),
-            );
-          }
-
-          return table;
-        },
+          ),
+        ],
       ),
     );
   }
@@ -244,8 +180,6 @@ class _UiV1DataGridState<T> extends State<UiV1DataGrid<T>> {
     double headerHeight,
     double padX,
     double padY,
-    List<double> widths,
-    double maxWidth,
   ) {
     final value = _headerCheckboxValue;
     return Material(
@@ -257,45 +191,39 @@ class _UiV1DataGridState<T> extends State<UiV1DataGrid<T>> {
             bottom: BorderSide(color: colorScheme.outlineVariant),
           ),
         ),
-        child: ClipRect(
-          child: SizedBox(
-            width: maxWidth,
-            child: Row(
-              children: [
-                SizedBox(
-                  width: _checkboxWidth,
-                  child: Center(
-                    child: Checkbox(
-                      value: value,
-                      tristate: true,
-                      onChanged: widget.onSelectionChanged != null ? (_) => _toggleSelectAll() : null,
+        child: Row(
+          children: [
+            SizedBox(
+              width: _selectionWidth,
+              child: Center(
+                child: Checkbox(
+                  value: value,
+                  tristate: true,
+                  onChanged: widget.onSelectionChanged != null ? (_) => _toggleSelectAll() : null,
+                ),
+              ),
+            ),
+            for (var i = 0; i < widget.columns.length; i++)
+              Expanded(
+                flex: widget.columns[i].flex,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: padX, vertical: padY),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      widget.columns[i].label,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
                 ),
-                for (var i = 0; i < widget.columns.length; i++)
-                  SizedBox(
-                    width: widths[i],
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: padX, vertical: padY),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          widget.columns[i].label,
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            fontWeight: FontWeight.w500,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                        ),
-                      ),
-                    ),
-                  ),
-                if (widget.showRowActions)
-                  SizedBox(width: _actionsColumnWidth),
-              ],
-            ),
-          ),
+              ),
+            if (widget.showRowActions) SizedBox(width: _actionsWidth),
+          ],
         ),
       ),
     );
@@ -327,9 +255,10 @@ class _UiV1DataGridState<T> extends State<UiV1DataGrid<T>> {
                 margin: const EdgeInsets.symmetric(vertical: 2),
                 child: Row(
                   children: [
-                    const SizedBox(width: _checkboxWidth),
+                    const SizedBox(width: _selectionWidth),
                     for (var i = 0; i < n; i++)
                       Expanded(
+                        flex: widget.columns.isEmpty ? 1 : widget.columns[i].flex,
                         child: Padding(
                           padding: EdgeInsets.symmetric(horizontal: padX, vertical: padY),
                           child: Container(
@@ -341,7 +270,7 @@ class _UiV1DataGridState<T> extends State<UiV1DataGrid<T>> {
                           ),
                         ),
                       ),
-                    if (widget.showRowActions) const SizedBox(width: _actionsColumnWidth),
+                    if (widget.showRowActions) const SizedBox(width: _actionsWidth),
                   ],
                 ),
               );
@@ -397,8 +326,6 @@ class _DataRowWidget<T> extends StatelessWidget {
   const _DataRowWidget({
     required this.row,
     required this.columns,
-    required this.widths,
-    required this.maxRowWidth,
     required this.rowHeight,
     required this.padX,
     required this.padY,
@@ -414,8 +341,6 @@ class _DataRowWidget<T> extends StatelessWidget {
 
   final T row;
   final List<UiV1DataGridColumn<T>> columns;
-  final List<double> widths;
-  final double maxRowWidth;
   final double rowHeight;
   final double padX;
   final double padY;
@@ -452,50 +377,47 @@ class _DataRowWidget<T> extends StatelessWidget {
                   )
                 : null,
           ),
-          child: ClipRect(
-            child: SizedBox(
-              width: maxRowWidth,
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: _checkboxWidth,
-                    child: Center(
-                      child: Checkbox(
-                        value: selected,
-                        onChanged: (_) => onCheckboxTap(),
+          child: Row(
+            children: [
+              SizedBox(
+                width: _selectionWidth,
+                child: Center(
+                  child: Checkbox(
+                    value: selected,
+                    onChanged: (_) => onCheckboxTap(),
+                  ),
+                ),
+              ),
+              for (var i = 0; i < columns.length; i++)
+                Expanded(
+                  flex: columns[i].flex,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: padX, vertical: padY),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          return ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: constraints.maxWidth.clamp(0.0, double.infinity),
+                            ),
+                            child: columns[i].cellBuilder(row),
+                          );
+                        },
                       ),
                     ),
                   ),
-                  for (var i = 0; i < columns.length; i++)
-                    SizedBox(
-                      width: widths[i],
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: padX, vertical: padY),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: ClipRect(
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(
-                                maxWidth: (widths[i] - 2 * padX).clamp(0, double.infinity),
-                              ),
-                              child: columns[i].cellBuilder(row),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (showRowActions)
-                    SizedBox(
-                      width: _actionsColumnWidth,
-                      child: IconButton(
-                        icon: const Icon(Icons.more_horiz),
-                        onPressed: onRowActionsTap,
-                        tooltip: 'Actions',
-                      ),
-                    ),
-                ],
-              ),
-            ),
+                ),
+              if (showRowActions)
+                SizedBox(
+                  width: _actionsWidth,
+                  child: IconButton(
+                    icon: const Icon(Icons.more_horiz),
+                    onPressed: onRowActionsTap,
+                    tooltip: 'Actions',
+                  ),
+                ),
+            ],
           ),
         ),
       ),

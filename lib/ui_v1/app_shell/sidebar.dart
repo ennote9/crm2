@@ -86,14 +86,16 @@ class _NavTile extends StatelessWidget {
     const padding = 12.0;
     const iconSize = 24.0;
 
-    final content = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(
-          width: collapsed ? 56 : padding + iconSize + padding,
-          child: Row(
-            mainAxisAlignment:
-                collapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
+    final content = collapsed
+        ? Icon(
+            item.icon,
+            size: iconSize,
+            color: isActive
+                ? colorScheme.primary
+                : colorScheme.onSurfaceVariant,
+          )
+        : Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 item.icon,
@@ -102,26 +104,22 @@ class _NavTile extends StatelessWidget {
                     ? colorScheme.primary
                     : colorScheme.onSurfaceVariant,
               ),
-              if (!collapsed) ...[
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    item.label,
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      color: isActive
-                          ? colorScheme.primary
-                          : colorScheme.onSurface,
-                      fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  item.label,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: isActive
+                        ? colorScheme.primary
+                        : colorScheme.onSurface,
+                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
                   ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
-              ],
+              ),
             ],
-          ),
-        ),
-      ],
-    );
+          );
 
     final tile = Material(
       color: isActive ? colorScheme.primaryContainer.withValues(alpha: 0.5) : null,

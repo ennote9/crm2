@@ -46,33 +46,28 @@ class UiV1StatusChip extends StatelessWidget {
     final densityTokens = UiV1DensityTokens.forDensity(density);
     final (bg, fg) = _colorsForVariant(colors);
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 140),
-          child: Container(
-            height: densityTokens.chipHeight,
-            padding: EdgeInsets.symmetric(horizontal: densityTokens.chipPaddingX),
-            decoration: BoxDecoration(
-              color: bg,
-              borderRadius: BorderRadius.circular(UiV1RadiusTokens.standard.lg),
-              border: Border.all(color: fg.withValues(alpha: 0.4)),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: fg,
-              ),
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
-            ),
-          ),
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 140),
+      child: Container(
+        height: densityTokens.chipHeight,
+        padding: EdgeInsets.symmetric(horizontal: densityTokens.chipPaddingX),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(UiV1RadiusTokens.standard.lg),
+          border: Border.all(color: fg.withValues(alpha: 0.4)),
         ),
-      ],
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: fg,
+          ),
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
+        ),
+      ),
     );
   }
 

@@ -5,8 +5,10 @@ import '../../app_shell/app_shell.dart';
 import '../../components/bulk_action_bar/index.dart';
 import '../../components/chips/index.dart';
 import '../../components/data_grid/index.dart';
+import '../../components/toolbar/index.dart';
 import '../../theme/density.dart';
 import '../../utils/nav_item.dart';
+import '../order_details/order_details_page.dart';
 
 /// Demo page that shows the ui_v1 App Shell with DataGrid demo (Orders mock).
 class UiV1PlaygroundPage extends StatefulWidget {
@@ -26,19 +28,34 @@ const double _kBreakpointCardList = 850;
 /// Content width below which card list uses ultra-compact layout (chip always on own row).
 const double _kBreakpointUltraNarrow = 360;
 
-/// Content width below which toolbar shows single demo dropdown instead of 4 buttons.
-const double _kBreakpointCompactToolbar = 520;
-
 class _UiV1PlaygroundPageState extends State<UiV1PlaygroundPage> {
   UiV1NavItem _currentNavId = UiV1NavItem.orders;
   _DemoState _demoState = _DemoState.data;
   Set<String> _selectedIds = {};
   late List<OrderMock> _mockOrders;
 
+  // Command toolbar state
+  late TextEditingController _searchController;
+  late FocusNode _searchFocusNode;
+  Set<String> _statusFilters = {};
+  String? _warehouseFilter;
+  UiV1WorklistViewId _viewId = UiV1WorklistViewId.all;
+  bool _isCustomView = false;
+  bool _showStatistics = false;
+
   @override
   void initState() {
     super.initState();
     _mockOrders = _createMockOrders();
+    _searchController = TextEditingController();
+    _searchFocusNode = FocusNode();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
   }
 
   static List<OrderMock> _createMockOrders() {
@@ -59,15 +76,159 @@ class _UiV1PlaygroundPageState extends State<UiV1PlaygroundPage> {
   }
 
   List<OrderMock> get _rows {
+    List<OrderMock> list;
     switch (_demoState) {
       case _DemoState.data:
-        return _mockOrders;
+        list = _mockOrders;
+        break;
       case _DemoState.empty:
         return [];
       case _DemoState.loading:
       case _DemoState.error:
-        return _mockOrders;
+        list = _mockOrders;
+        break;
     }
+    return _applyFilters(list);
+  }
+
+  List<OrderMock> _applyFilters(List<OrderMock> list) {
+    var result = list;
+    final query = _searchController.text.trim().toLowerCase();
+    if (query.isNotEmpty) {
+      result = result.where((o) =>
+        o.orderNo.toLowerCase().contains(query) ||
+        o.warehouse.toLowerCase().contains(query) ||
+        o.status.toLowerCase().contains(query),
+      ).toList();
+    }
+    if (_statusFilters.isNotEmpty) {
+      result = result.where((o) => _statusFilters.contains(o.status)).toList();
+    }
+    if (_warehouseFilter != null) {
+      result = result.where((o) => o.warehouse == _warehouseFilter).toList();
+    }
+    switch (_viewId) {
+      case UiV1WorklistViewId.onHold:
+        result = result.where((o) => o.status == 'On Hold').toList();
+        break;
+      case UiV1WorklistViewId.shortage:
+        result = result.where((o) => o.status == 'Shortage').toList();
+        break;
+      case UiV1WorklistViewId.today:
+        result = result.where((o) => o.created.startsWith('2025-01')).toList();
+        break;
+      case UiV1WorklistViewId.all:
+      case UiV1WorklistViewId.custom:
+        break;
+      default:
+        break;
+    }
+    return result;
+  }
+
+  void _applyViewPreset(UiV1WorklistViewId viewId) {
+    setState(() {
+      _viewId = viewId;
+      _isCustomView = false;
+      switch (viewId) {
+        case UiV1WorklistViewId.all:
+          _statusFilters = {};
+          _warehouseFilter = null;
+          break;
+        case UiV1WorklistViewId.onHold:
+          _statusFilters = {'On Hold'};
+          _warehouseFilter = null;
+          break;
+        case UiV1WorklistViewId.shortage:
+          _statusFilters = {'Shortage'};
+          _warehouseFilter = null;
+          break;
+        case UiV1WorklistViewId.today:
+          _statusFilters = {};
+          _warehouseFilter = null;
+          break;
+        case UiV1WorklistViewId.custom:
+          break;
+        default:
+          _statusFilters = {};
+          _warehouseFilter = null;
+      }
+    });
+  }
+
+  void _onFiltersApplied(UiV1OrdersFiltersResult result) {
+    setState(() {
+      _statusFilters = result.statuses;
+      _warehouseFilter = result.warehouse;
+      _isCustomView = true;
+    });
+  }
+
+  List<UiV1FilterChipItem> get _filterChips {
+    final chips = <UiV1FilterChipItem>[];
+    for (final s in _statusFilters) {
+      chips.add(UiV1FilterChipItem(
+        label: 'Status: $s',
+        onRemove: () => setState(() => _statusFilters = _statusFilters..remove(s)),
+      ));
+    }
+    if (_warehouseFilter != null) {
+      chips.add(UiV1FilterChipItem(
+        label: 'Warehouse: $_warehouseFilter',
+        onRemove: () => setState(() => _warehouseFilter = null),
+      ));
+    }
+    return chips;
+  }
+
+  void _onMoreReset() {
+    setState(() {
+      _searchController.clear();
+      _statusFilters = {};
+      _warehouseFilter = null;
+      _viewId = UiV1WorklistViewId.all;
+      _isCustomView = false;
+    });
+  }
+
+  void _onDevStateSelected(String id) {
+    setState(() {
+      switch (id) {
+        case 'data': _demoState = _DemoState.data; break;
+        case 'loading': _demoState = _DemoState.loading; break;
+        case 'empty': _demoState = _DemoState.empty; break;
+        case 'error': _demoState = _DemoState.error; break;
+      }
+    });
+  }
+
+  void _openOrderDetails(BuildContext context, OrderMock row) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => OrderDetailsPage(
+          payload: OrderDetailsPayload(
+            orderNo: row.orderNo,
+            status: row.status,
+            warehouse: row.warehouse,
+            created: row.created,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Stats counts from current filtered list (for display when showStatistics is true).
+  (int total, int inProgress, int onHold, int shortage) get _statsCounts {
+    final list = _demoState == _DemoState.data ? _applyFilters(_mockOrders) : <OrderMock>[];
+    int inProgress = 0;
+    int onHold = 0;
+    int shortage = 0;
+    for (final o in list) {
+      if (o.status == 'Allocating' || o.status == 'Picking' || o.status == 'Packing') inProgress++;
+      if (o.status == 'On Hold') onHold++;
+      if (o.status == 'Shortage') shortage++;
+    }
+    return (list.length, inProgress, onHold, shortage);
   }
 
   bool get _loading => _demoState == _DemoState.loading;
@@ -98,7 +259,6 @@ class _UiV1PlaygroundPageState extends State<UiV1PlaygroundPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return UiV1AppShell(
       currentNavId: _currentNavId,
       onNavSelected: (id) => setState(() => _currentNavId = id),
@@ -107,6 +267,8 @@ class _UiV1PlaygroundPageState extends State<UiV1PlaygroundPage> {
       child: Shortcuts(
         shortcuts: const {
           SingleActivator(LogicalKeyboardKey.escape): _ClearSelectionIntent(),
+          SingleActivator(LogicalKeyboardKey.keyF, control: true): _FocusSearchIntent(),
+          SingleActivator(LogicalKeyboardKey.keyF, meta: true): _FocusSearchIntent(),
         },
         child: Actions(
           actions: {
@@ -118,68 +280,50 @@ class _UiV1PlaygroundPageState extends State<UiV1PlaygroundPage> {
                 return null;
               },
             ),
+            _FocusSearchIntent: CallbackAction<_FocusSearchIntent>(
+              onInvoke: (_) {
+                FocusScope.of(context).requestFocus(_searchFocusNode);
+                return null;
+              },
+            ),
           },
           child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          LayoutBuilder(
-            builder: (context, toolbarConstraints) {
-              final contentWidth = toolbarConstraints.maxWidth;
-              final compactToolbar = contentWidth < _kBreakpointCompactToolbar;
-              return Padding(
-                padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
-                child: Row(
-                  children: [
-                    Text('Orders', style: theme.textTheme.titleLarge),
-                    const SizedBox(width: 16),
-                    if (compactToolbar)
-                      DropdownButton<_DemoState>(
-                        value: _demoState,
-                        isDense: true,
-                        underline: const SizedBox.shrink(),
-                        items: const [
-                          DropdownMenuItem(value: _DemoState.data, child: Text('Data')),
-                          DropdownMenuItem(value: _DemoState.loading, child: Text('Loading')),
-                          DropdownMenuItem(value: _DemoState.empty, child: Text('Empty')),
-                          DropdownMenuItem(value: _DemoState.error, child: Text('Error')),
-                        ],
-                        onChanged: (v) {
-                          if (v != null) setState(() => _demoState = v);
-                        },
-                      )
-                    else
-                      Expanded(
-                        child: Wrap(
-                          spacing: 8,
-                          runSpacing: 4,
-                          children: [
-                            FilledButton.tonal(
-                              onPressed: () => setState(() => _demoState = _DemoState.data),
-                              child: const Text('Data'),
-                            ),
-                            OutlinedButton(
-                              onPressed: () => setState(() => _demoState = _DemoState.loading),
-                              child: const Text('Loading'),
-                            ),
-                            OutlinedButton(
-                              onPressed: () => setState(() => _demoState = _DemoState.empty),
-                              child: const Text('Empty'),
-                            ),
-                            OutlinedButton(
-                              onPressed: () => setState(() => _demoState = _DemoState.error),
-                              child: const Text('Error'),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              UiV1CommandToolbar(
+                searchController: _searchController,
+                searchFocusNode: _searchFocusNode,
+                onSearchSubmit: () => setState(() {}),
+                onSearchClear: () {
+                  _searchController.clear();
+                  setState(() {});
+                },
+                filterChips: _filterChips,
+                onFiltersTap: () => showUiV1OrdersFiltersPanel(
+                  context: context,
+                  initialStatuses: _statusFilters,
+                  initialWarehouse: _warehouseFilter,
+                  onApply: _onFiltersApplied,
                 ),
-              );
-            },
-          ),
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
+                currentViewId: _viewId,
+                isCustomView: _isCustomView,
+                onViewSelected: _applyViewPreset,
+                onMoreReset: _onMoreReset,
+                onDevStateSelected: _onDevStateSelected,
+                showStatistics: _showStatistics,
+                onShowStatisticsChanged: (v) => setState(() => _showStatistics = v),
+              ),
+              if (_showStatistics) ...[
+                UiV1OrdersStatsPanel(
+                  total: _statsCounts.$1,
+                  inProgress: _statsCounts.$2,
+                  onHold: _statsCounts.$3,
+                  shortage: _statsCounts.$4,
+                ),
+              ],
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
                 final contentWidth = constraints.maxWidth;
                 final useCardList = contentWidth < _kBreakpointCardList;
 
@@ -197,11 +341,7 @@ class _UiV1PlaygroundPageState extends State<UiV1PlaygroundPage> {
                         onRetry: () => setState(() => _demoState = _DemoState.data),
                         emptyMessage: 'No orders',
                         ultraNarrow: ultraNarrow,
-                        onRowOpen: (row) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Opened ${row.orderNo}')),
-                          );
-                        },
+                        onRowOpen: (row) => _openOrderDetails(context, row),
                         onRowActions: (row) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text('Actions for ${row.orderNo}')),
@@ -237,11 +377,7 @@ class _UiV1PlaygroundPageState extends State<UiV1PlaygroundPage> {
                         errorMessage: _errorMessage,
                         onRetry: () => setState(() => _demoState = _DemoState.data),
                         emptyMessage: 'No orders',
-                        onRowOpen: (row) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Opened ${row.orderNo}')),
-                          );
-                        },
+                        onRowOpen: (row) => _openOrderDetails(context, row),
                         showRowActions: true,
                         onRowActions: (row) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -262,11 +398,11 @@ class _UiV1PlaygroundPageState extends State<UiV1PlaygroundPage> {
                     ),
                   ],
                 );
-              },
-            ),
+                  },
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
         ),
       ),
     );
@@ -276,7 +412,7 @@ class _UiV1PlaygroundPageState extends State<UiV1PlaygroundPage> {
         UiV1DataGridColumn<OrderMock>(
           id: 'orderNo',
           label: 'Order No',
-          flex: 1,
+          flex: 3,
           cellBuilder: (r) => Text(
             r.orderNo,
             overflow: TextOverflow.ellipsis,
@@ -286,7 +422,7 @@ class _UiV1PlaygroundPageState extends State<UiV1PlaygroundPage> {
         UiV1DataGridColumn<OrderMock>(
           id: 'status',
           label: 'Status',
-          flex: 1,
+          flex: 2,
           cellBuilder: (r) => UiV1StatusChip(
             label: r.status,
             variant: UiV1StatusChip.variantFromStatus(r.status),
@@ -295,7 +431,7 @@ class _UiV1PlaygroundPageState extends State<UiV1PlaygroundPage> {
         UiV1DataGridColumn<OrderMock>(
           id: 'warehouse',
           label: 'Warehouse',
-          flex: 1,
+          flex: 2,
           cellBuilder: (r) => Text(
             r.warehouse,
             overflow: TextOverflow.ellipsis,
@@ -305,7 +441,7 @@ class _UiV1PlaygroundPageState extends State<UiV1PlaygroundPage> {
         UiV1DataGridColumn<OrderMock>(
           id: 'created',
           label: 'Created',
-          flex: 1,
+          flex: 2,
           cellBuilder: (r) => Text(
             r.created,
             overflow: TextOverflow.ellipsis,
@@ -317,6 +453,10 @@ class _UiV1PlaygroundPageState extends State<UiV1PlaygroundPage> {
 
 class _ClearSelectionIntent extends Intent {
   const _ClearSelectionIntent();
+}
+
+class _FocusSearchIntent extends Intent {
+  const _FocusSearchIntent();
 }
 
 /// Card list for Orders when content width < 850. Multi-row layout to avoid overflow.
@@ -432,23 +572,25 @@ class _OrdersCardList extends StatelessWidget {
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.more_horiz),
+                          icon: const Icon(Icons.more_horiz, size: 20),
                           onPressed: () => onRowActions(row),
                           tooltip: 'Actions',
                           style: IconButton.styleFrom(
-                            minimumSize: const Size(48, 48),
+                            minimumSize: const Size(32, 32),
+                            padding: EdgeInsets.zero,
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: VisualDensity.compact,
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 4),
-                    // Row 2: Warehouse + Created (one line, ellipsis)
+                    // Row 2: Warehouse + Created (up to 2 lines, ellipsis to avoid overflow)
                     Text(
                       '${row.warehouse} · ${row.created}',
                       style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                       overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
+                      maxLines: 2,
                     ),
                     const SizedBox(height: 4),
                     // Row 3: Status chip (own line to avoid overflow)
