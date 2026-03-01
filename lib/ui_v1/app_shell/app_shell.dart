@@ -24,6 +24,7 @@ class UiV1AppShell extends StatefulWidget {
     this.initialCollapsed = false,
     this.currentNavId,
     this.onNavSelected,
+    this.navItems,
     this.onThemeToggle,
     this.onUserMenuTap,
   });
@@ -32,6 +33,8 @@ class UiV1AppShell extends StatefulWidget {
   final bool initialCollapsed;
   final UiV1NavItem? currentNavId;
   final ValueChanged<UiV1NavItem>? onNavSelected;
+  /// When null, uses [UiV1NavItem.all].
+  final List<UiV1NavItem>? navItems;
   final VoidCallback? onThemeToggle;
   final VoidCallback? onUserMenuTap;
 
@@ -77,6 +80,7 @@ class _UiV1AppShellState extends State<UiV1AppShell> {
                     onToggleCollapsed: () => setState(() => _collapsed = !_collapsed),
                     currentNavId: widget.currentNavId,
                     onNavSelected: widget.onNavSelected,
+                    navItems: widget.navItems,
                   ),
                   Expanded(child: content),
                 ],
@@ -99,6 +103,7 @@ class _UiV1AppShellState extends State<UiV1AppShell> {
               Navigator.of(context).pop();
               widget.onNavSelected?.call(id);
             },
+            navItems: widget.navItems,
           ),
         ),
       ),

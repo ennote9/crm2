@@ -2,6 +2,38 @@ import 'package:flutter/material.dart';
 
 import '../utils/nav_item.dart';
 
+List<Widget> _buildNavTiles(
+  List<UiV1NavItem> items,
+  bool collapsed,
+  UiV1NavItem? currentNavId,
+  ValueChanged<UiV1NavItem>? onNavSelected,
+) {
+  final hasPlayground = items.contains(UiV1NavItem.playground);
+  final mainItems = hasPlayground
+      ? items.where((e) => e != UiV1NavItem.playground).toList()
+      : items;
+  return [
+    for (final item in mainItems)
+      _NavTile(
+        item: item,
+        collapsed: collapsed,
+        isActive: currentNavId == item,
+        onTap: onNavSelected != null ? () => onNavSelected(item) : null,
+      ),
+    if (hasPlayground) ...[
+      const Divider(height: 1),
+      _NavTile(
+        item: UiV1NavItem.playground,
+        collapsed: collapsed,
+        isActive: currentNavId == UiV1NavItem.playground,
+        onTap: onNavSelected != null
+            ? () => onNavSelected(UiV1NavItem.playground)
+            : null,
+      ),
+    ],
+  ];
+}
+
 /// Sidebar: nav items (icon + label when expanded, icon + tooltip when collapsed),
 /// active indicator, collapse/expand button.
 class UiV1Sidebar extends StatelessWidget {
@@ -11,12 +43,15 @@ class UiV1Sidebar extends StatelessWidget {
     required this.onToggleCollapsed,
     required this.currentNavId,
     required this.onNavSelected,
+    this.navItems,
   });
 
   final bool collapsed;
   final VoidCallback onToggleCollapsed;
   final UiV1NavItem? currentNavId;
   final ValueChanged<UiV1NavItem>? onNavSelected;
+  /// When null, uses [UiV1NavItem.all].
+  final List<UiV1NavItem>? navItems;
 
   static const double widthExpanded = 220;
   static const double widthCollapsed = 56;
@@ -43,13 +78,11 @@ class UiV1Sidebar extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 shrinkWrap: true,
                 children: [
-                  for (final item in UiV1NavItem.all) _NavTile(
-                    item: item,
-                    collapsed: collapsed,
-                    isActive: currentNavId == item,
-                    onTap: onNavSelected != null
-                        ? () => onNavSelected!(item)
-                        : null,
+                  ..._buildNavTiles(
+                    navItems ?? UiV1NavItem.all,
+                    collapsed,
+                    currentNavId,
+                    onNavSelected,
                   ),
                 ],
               ),

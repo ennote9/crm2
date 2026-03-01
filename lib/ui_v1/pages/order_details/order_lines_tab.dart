@@ -1,10 +1,11 @@
-// Lines tab v1: mini-grid, multi-select, bulk actions (Mark shortage, Set reason code). Mock data.
+// Lines tab v1: mini-grid, multi-select, bulk actions (Mark shortage, Set reason code).
 
 import 'package:flutter/material.dart';
 
 import '../../components/bulk_action_bar/index.dart';
 import '../../components/chips/index.dart';
 import '../../components/data_grid/index.dart';
+import '../../demo_data/demo_data.dart';
 import '../../theme/density.dart';
 import '../../theme/tokens.dart';
 
@@ -13,57 +14,6 @@ const List<String> kShortageReasonCodes = ['DAMAGED', 'LOST', 'EXPIRED', 'NOT_FO
 
 const String kERsn001 = 'E_RSN_001';
 const String kERsn001Message = 'Укажите причину (reason code).';
-
-/// Mock row for one order line in the Lines grid.
-class OrderLineMock {
-  OrderLineMock({
-    required this.id,
-    required this.sku,
-    required this.name,
-    required this.ordered,
-    required this.reserved,
-    required this.picked,
-    required this.packed,
-    required this.shipped,
-    required this.short,
-    this.reasonCode,
-  });
-  final String id;
-  final String sku;
-  final String name;
-  final int ordered;
-  final int reserved;
-  final int picked;
-  final int packed;
-  final int shipped;
-  final int short;
-  final String? reasonCode;
-
-  OrderLineMock copyWith({int? short, String? reasonCode, int? shipped, int? picked, int? packed}) {
-    return OrderLineMock(
-      id: id,
-      sku: sku,
-      name: name,
-      ordered: ordered,
-      reserved: reserved,
-      picked: picked ?? this.picked,
-      packed: packed ?? this.packed,
-      shipped: shipped ?? this.shipped,
-      short: short ?? this.short,
-      reasonCode: reasonCode ?? this.reasonCode,
-    );
-  }
-}
-
-/// Creates default mock lines for order details (used by page state and Lines tab).
-List<OrderLineMock> createMockOrderLines() {
-  return [
-    OrderLineMock(id: 'L1', sku: 'SKU-001', name: 'Product A', ordered: 10, reserved: 10, picked: 8, packed: 0, shipped: 0, short: 0),
-    OrderLineMock(id: 'L2', sku: 'SKU-002', name: 'Product B', ordered: 5, reserved: 4, picked: 4, packed: 4, shipped: 0, short: 1, reasonCode: 'LOST'),
-    OrderLineMock(id: 'L3', sku: 'SKU-003', name: 'Product C', ordered: 20, reserved: 20, picked: 18, packed: 18, shipped: 18, short: 2, reasonCode: 'DAMAGED'),
-    OrderLineMock(id: 'L4', sku: 'SKU-004', name: 'Product D', ordered: 3, reserved: 3, picked: 3, packed: 3, shipped: 3, short: 0),
-  ];
-}
 
 /// Lines tab: grid with selection, bulk action bar, Mark shortage / Set reason code.
 class OrderLinesTab extends StatefulWidget {
@@ -75,16 +25,15 @@ class OrderLinesTab extends StatefulWidget {
   });
 
   final String? orderNo;
-  /// When provided, tab is controlled (parent owns lines). Otherwise uses internal mock.
-  final List<OrderLineMock>? lines;
-  final void Function(List<OrderLineMock>)? onLinesChanged;
+  final List<DemoOrderLine>? lines;
+  final void Function(List<DemoOrderLine>)? onLinesChanged;
 
   @override
   State<OrderLinesTab> createState() => _OrderLinesTabState();
 }
 
 class _OrderLinesTabState extends State<OrderLinesTab> {
-  late List<OrderLineMock> _lines;
+  late List<DemoOrderLine> _lines;
   Set<String> _selectedIds = {};
   final s = UiV1SpacingTokens.standard;
   final density = UiV1DensityTokens.dense;
@@ -92,7 +41,7 @@ class _OrderLinesTabState extends State<OrderLinesTab> {
   @override
   void initState() {
     super.initState();
-    _lines = widget.lines ?? createMockOrderLines();
+    _lines = List.from(widget.lines ?? []);
   }
 
   @override
@@ -103,9 +52,9 @@ class _OrderLinesTabState extends State<OrderLinesTab> {
     }
   }
 
-  List<OrderLineMock> get _effectiveLines => widget.lines ?? _lines;
+  List<DemoOrderLine> get _effectiveLines => widget.lines ?? _lines;
 
-  void _setLines(List<OrderLineMock> next) {
+  void _setLines(List<DemoOrderLine> next) {
     if (widget.onLinesChanged != null) {
       widget.onLinesChanged!(next);
     } else {
@@ -113,72 +62,72 @@ class _OrderLinesTabState extends State<OrderLinesTab> {
     }
   }
 
-  List<UiV1DataGridColumn<OrderLineMock>> _columns(BuildContext context) {
+  List<UiV1DataGridColumn<DemoOrderLine>> _columns(BuildContext context) {
     return [
-      UiV1DataGridColumn<OrderLineMock>(
+      UiV1DataGridColumn<DemoOrderLine>(
         id: 'sku',
         label: 'SKU',
         flex: 2,
         cellBuilder: (r) => Text(r.sku, overflow: TextOverflow.ellipsis, maxLines: 1),
       ),
-      UiV1DataGridColumn<OrderLineMock>(
+      UiV1DataGridColumn<DemoOrderLine>(
         id: 'name',
         label: 'Name',
         flex: 2,
         cellBuilder: (r) => Text(r.name, overflow: TextOverflow.ellipsis, maxLines: 1),
       ),
-      UiV1DataGridColumn<OrderLineMock>(
+      UiV1DataGridColumn<DemoOrderLine>(
         id: 'ordered',
         label: 'Ordered',
         flex: 1,
-        cellBuilder: (r) => Text('${r.ordered}', overflow: TextOverflow.ellipsis, maxLines: 1),
+        cellBuilder: (r) => Text('${r.orderedQty}', overflow: TextOverflow.ellipsis, maxLines: 1),
       ),
-      UiV1DataGridColumn<OrderLineMock>(
+      UiV1DataGridColumn<DemoOrderLine>(
         id: 'reserved',
         label: 'Reserved',
         flex: 1,
-        cellBuilder: (r) => Text('${r.reserved}', overflow: TextOverflow.ellipsis, maxLines: 1),
+        cellBuilder: (r) => Text('${r.reservedQty}', overflow: TextOverflow.ellipsis, maxLines: 1),
       ),
-      UiV1DataGridColumn<OrderLineMock>(
+      UiV1DataGridColumn<DemoOrderLine>(
         id: 'picked',
         label: 'Picked',
         flex: 1,
-        cellBuilder: (r) => Text('${r.picked}', overflow: TextOverflow.ellipsis, maxLines: 1),
+        cellBuilder: (r) => Text('${r.pickedQty}', overflow: TextOverflow.ellipsis, maxLines: 1),
       ),
-      UiV1DataGridColumn<OrderLineMock>(
+      UiV1DataGridColumn<DemoOrderLine>(
         id: 'packed',
         label: 'Packed',
         flex: 1,
-        cellBuilder: (r) => Text('${r.packed}', overflow: TextOverflow.ellipsis, maxLines: 1),
+        cellBuilder: (r) => Text('${r.packedQty}', overflow: TextOverflow.ellipsis, maxLines: 1),
       ),
-      UiV1DataGridColumn<OrderLineMock>(
+      UiV1DataGridColumn<DemoOrderLine>(
         id: 'shipped',
         label: 'Shipped',
         flex: 1,
-        cellBuilder: (r) => Text('${r.shipped}', overflow: TextOverflow.ellipsis, maxLines: 1),
+        cellBuilder: (r) => Text('${r.shippedQty}', overflow: TextOverflow.ellipsis, maxLines: 1),
       ),
-      UiV1DataGridColumn<OrderLineMock>(
+      UiV1DataGridColumn<DemoOrderLine>(
         id: 'short',
         label: 'Short',
         flex: 1,
         cellBuilder: (r) {
-          if (r.short > 0) {
+          if (r.shortQty > 0) {
             final content = Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Expanded(
-                  child: Text('${r.short}', overflow: TextOverflow.ellipsis, maxLines: 1),
+                  child: Text('${r.shortQty}', overflow: TextOverflow.ellipsis, maxLines: 1),
                 ),
                 const SizedBox(width: 4),
                 UiV1StatusChip(label: 'Shortage', variant: UiV1StatusVariant.warning),
               ],
             );
-            final tooltip = r.reasonCode != null ? '${r.short} — ${r.reasonCode}' : null;
+            final tooltip = r.reasonCode != null ? '${r.shortQty} — ${r.reasonCode}' : null;
             return tooltip != null
                 ? Tooltip(message: tooltip, child: content)
                 : content;
           }
-          return Text('${r.short}', overflow: TextOverflow.ellipsis, maxLines: 1);
+          return Text('${r.shortQty}', overflow: TextOverflow.ellipsis, maxLines: 1);
         },
       ),
     ];
@@ -197,7 +146,7 @@ class _OrderLinesTabState extends State<OrderLinesTab> {
     }
     _setLines(_effectiveLines.map((line) {
       if (!_selectedIds.contains(line.id)) return line;
-      return line.copyWith(short: result.shortQty, reasonCode: result.reasonCode);
+      return line.copyWith(shortQty: result.shortQty, reasonCode: result.reasonCode);
     }).toList());
     setState(() => _selectedIds = {});
   }
@@ -241,7 +190,7 @@ class _OrderLinesTabState extends State<OrderLinesTab> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
-            child: UiV1DataGrid<OrderLineMock>(
+            child: UiV1DataGrid<DemoOrderLine>(
               columns: _columns(context),
               rows: _effectiveLines,
               rowIdGetter: (r) => r.id,
@@ -315,7 +264,7 @@ class _MarkShortageDialogState extends State<_MarkShortageDialog> {
             ),
             SizedBox(height: widget.s.sm),
             DropdownButtonFormField<String>(
-              value: _reasonCode,
+              initialValue: _reasonCode,
               decoration: const InputDecoration(
                 labelText: 'Reason code (required)',
                 border: OutlineInputBorder(),
@@ -366,7 +315,7 @@ class _SetReasonCodeDialogState extends State<_SetReasonCodeDialog> {
       content: SizedBox(
         width: 280,
         child: DropdownButtonFormField<String>(
-          value: _value,
+          initialValue: _value,
           decoration: const InputDecoration(
             labelText: 'Reason code',
             border: OutlineInputBorder(),

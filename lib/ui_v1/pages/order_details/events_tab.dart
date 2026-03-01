@@ -1,8 +1,9 @@
-// Events tab v1.1: key timestamps panel (chip-like), timeline with line + type markers, group by date. Mock data.
+// Events tab v1.1: key timestamps panel (chip-like), timeline with line + type markers, group by date.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../demo_data/demo_data.dart';
 import '../../theme/density.dart';
 import '../../theme/tokens.dart';
 import 'models/order_event.dart';
@@ -21,73 +22,12 @@ String _keyTsLabel(String code) {
   }
 }
 
-List<OrderEventMock> _mockEvents(String? orderNo) {
-  final seed = (orderNo ?? 'ORD').hashCode & 0x7FFF;
-  final base = DateTime.utc(2025, 2, 15, 8, 0);
-  final codes = [
-    'order_created',
-    'released',
-    'allocated',
-    'pick_started',
-    'hold_created',
-    'hold_resolved',
-    'pick_completed',
-    'pack_started',
-    'shortage_detected',
-    'pack_completed',
-    'shipped',
-    'export_sent',
-    'closed',
-    'order_created', // duplicate for count
-    'released',
-    'allocated',
-    'pick_started',
-    'pick_completed',
-    'pack_started',
-    'pack_completed',
-  ];
-  final actors = [
-    'system', 'J.Doe', 'J.Doe', 'M.Smith', 'M.Smith', 'M.Smith', 'M.Smith', 'L.Pack', 'system', 'L.Pack', 'system', 'system', 'J.Doe',
-    'system', 'J.Doe', 'J.Doe', 'M.Smith', 'M.Smith', 'L.Pack', 'L.Pack',
-  ];
-  final notes = [
-    'Order created',
-    'Order released to warehouse',
-    'Full allocation',
-    'Picking started',
-    'Hold: quality check',
-    'Hold released',
-    'Picking completed',
-    'Packing started',
-    'Shortage on line 2',
-    'Packing completed',
-    'Shipment confirmed',
-    'EDI sent',
-    'Order closed',
-    null, null, null, null, null, null, null,
-  ];
-  return List.generate(codes.length.clamp(0, 20), (i) {
-    final dt = base.add(Duration(hours: i + 1, minutes: (seed % 30) + i * 5));
-    return OrderEventMock(
-      id: 'EV-$seed-$i',
-      eventCode: codes[i],
-      occurredAt: dt,
-      actor: actors[i % actors.length],
-      note: i < notes.length ? notes[i] : null,
-    );
-  })..sort((a, b) => a.occurredAt.compareTo(b.occurredAt));
-}
-
-/// Creates mock events for order (used by page state and Events tab).
-List<OrderEventMock> createMockEventsForOrder(String? orderNo) => _mockEvents(orderNo);
-
 /// Events tab: key timestamps strip + timeline + filters + search. State preserved when switching tabs.
 class EventsTab extends StatefulWidget {
   const EventsTab({super.key, this.orderNo, this.events});
 
   final String? orderNo;
-  /// When provided, tab uses this list (e.g. from page state after Ship).
-  final List<OrderEventMock>? events;
+  final List<DemoEvent>? events;
 
   @override
   State<EventsTab> createState() => _EventsTabState();
@@ -100,12 +40,12 @@ class _EventsTabState extends State<EventsTab> with AutomaticKeepAliveClientMixi
   EventFilter _filter = EventFilter.all;
   final TextEditingController _searchController = TextEditingController();
 
-  late List<OrderEventMock> _allEvents;
+  late List<DemoEvent> _allEvents;
 
   @override
   void initState() {
     super.initState();
-    _allEvents = widget.events ?? _mockEvents(widget.orderNo);
+    _allEvents = List.from(widget.events ?? [])..sort((a, b) => a.occurredAt.compareTo(b.occurredAt));
   }
 
   @override
@@ -126,34 +66,34 @@ class _EventsTabState extends State<EventsTab> with AutomaticKeepAliveClientMixi
   Map<String, DateTime> get _keyTimestamps {
     final map = <String, DateTime>{};
     for (final e in _allEvents) {
-      if (kKeyTimestampCodes.contains(e.eventCode) && !map.containsKey(e.eventCode)) {
-        map[e.eventCode] = e.occurredAt;
+      if (kKeyTimestampCodes.contains(e.code) && !map.containsKey(e.code)) {
+        map[e.code] = e.occurredAt;
       }
     }
     return map;
   }
 
-  List<OrderEventMock> get _filteredEvents {
+  List<DemoEvent> get _filteredEvents {
     var list = _allEvents;
     final query = _searchController.text.trim().toLowerCase();
     if (query.isNotEmpty) {
       list = list.where((e) =>
-        e.eventCode.toLowerCase().contains(query) ||
+        e.code.toLowerCase().contains(query) ||
         e.actor.toLowerCase().contains(query) ||
-        (e.note?.toLowerCase().contains(query) ?? false),
+        (e.payload?.toLowerCase().contains(query) ?? false),
       ).toList();
     }
     switch (_filter) {
       case EventFilter.all:
         break;
       case EventFilter.workflow:
-        list = list.where((e) => eventCodeToCategory(e.eventCode) == OrderEventCategory.workflow).toList();
+        list = list.where((e) => e.category == DemoEventCategory.workflow).toList();
         break;
       case EventFilter.exceptions:
-        list = list.where((e) => eventCodeToCategory(e.eventCode) == OrderEventCategory.exceptions).toList();
+        list = list.where((e) => e.category == DemoEventCategory.exception).toList();
         break;
       case EventFilter.system:
-        list = list.where((e) => eventCodeToCategory(e.eventCode) == OrderEventCategory.system).toList();
+        list = list.where((e) => e.category == DemoEventCategory.system).toList();
         break;
     }
     return list;
@@ -163,7 +103,7 @@ class _EventsTabState extends State<EventsTab> with AutomaticKeepAliveClientMixi
   List<_TimelineEntry> get _timelineEntries {
     final events = _filteredEvents;
     if (events.isEmpty) return [];
-    final grouped = <String, List<OrderEventMock>>{};
+    final grouped = <String, List<DemoEvent>>{};
     for (final e in events) {
       final key = '${e.occurredAt.year}-${e.occurredAt.month.toString().padLeft(2, '0')}-${e.occurredAt.day.toString().padLeft(2, '0')}';
       grouped.putIfAbsent(key, () => []).add(e);
@@ -322,7 +262,7 @@ class _TimelineEntry {
   });
   final bool isHeader;
   final String? dateHeader;
-  final OrderEventMock? event;
+  final DemoEvent? event;
   final bool isFirstInGroup;
   final bool isLastInGroup;
 }
@@ -415,7 +355,7 @@ class _TimelineRow extends StatelessWidget {
     required this.s,
     required this.formatTs,
   });
-  final OrderEventMock event;
+  final DemoEvent event;
   final bool isFirstInGroup;
   final bool isLastInGroup;
   final ThemeData theme;
@@ -428,9 +368,9 @@ class _TimelineRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final category = eventCodeToCategory(event.eventCode);
-    final isException = category == OrderEventCategory.exceptions;
-    final isSystem = category == OrderEventCategory.system;
+    final category = event.category;
+    final isException = category == DemoEventCategory.exception;
+    final isSystem = category == DemoEventCategory.system;
 
     return IntrinsicHeight(
       child: Row(
@@ -527,7 +467,7 @@ class _TimelineRow extends StatelessWidget {
                           children: [
                             Expanded(
                               child: Text(
-                                eventCodeToLabel(event.eventCode),
+                                eventCodeToLabel(event.code),
                                 style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                                 overflow: TextOverflow.ellipsis,
                                 maxLines: 1,
@@ -541,10 +481,10 @@ class _TimelineRow extends StatelessWidget {
                             ),
                           ],
                         ),
-                        if (event.note != null && event.note!.isNotEmpty) ...[
+                        if (event.payload != null && event.payload!.isNotEmpty) ...[
                           SizedBox(height: 2),
                           Text(
-                            event.note!,
+                            event.payload!,
                             style: theme.textTheme.bodySmall?.copyWith(fontSize: 12),
                             overflow: TextOverflow.ellipsis,
                             maxLines: 2,

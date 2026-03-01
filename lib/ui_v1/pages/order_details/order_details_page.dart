@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../../components/chips/index.dart';
 import '../../components/dialogs/index.dart';
 import '../../components/progress/index.dart';
+import '../../demo_data/demo_data.dart';
 import '../../theme/density.dart';
 import '../../theme/tokens.dart';
 import 'order_actions_model.dart';
@@ -14,7 +15,6 @@ import 'events_tab.dart';
 import 'handling_units_tab.dart';
 import 'order_lines_tab.dart';
 import 'pick_tasks_tab.dart';
-import 'models/order_event.dart';
 
 /// Payload to open order details (from list row).
 /// When status is "On Hold", pass [baseStatus] so the chip shows base status (e.g. Allocated) and a separate "On Hold" badge is shown.
@@ -48,15 +48,13 @@ class OrderDetailsPage extends StatefulWidget {
 }
 
 class _OrderDetailsPageState extends State<OrderDetailsPage> {
-  /// Live order status (initial from payload; updated by Next step).
   late String _orderStatus;
-  late List<OrderLineMock> _lines;
-  late List<PickTaskMock> _pickTasks;
-  late List<HuMock> _hus;
-  late List<OrderEventMock> _events;
+  late List<DemoOrderLine> _lines;
+  late List<DemoPickTask> _pickTasks;
+  late List<DemoHandlingUnit> _hus;
+  late List<DemoEvent> _events;
 
-  /// hasShort from current lines (any line with short > 0).
-  bool get _hasShort => _lines.any((l) => l.short > 0);
+  bool get _hasShort => _lines.any((l) => l.shortQty > 0);
 
   bool get _isOnHold => _orderStatus.toLowerCase() == 'on hold';
   bool get _isCancelled => _orderStatus.toLowerCase() == 'cancelled';
@@ -77,26 +75,18 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
   @override
   void initState() {
     super.initState();
-    _orderStatus = widget.payload.status;
-    _lines = createMockOrderLines();
-    final s = widget.payload.status.toLowerCase();
-    _pickTasks = (s == 'allocated' || s == 'picking' || s == 'picked' || s == 'packing' || s == 'packed' || s == 'shipped' || s == 'closed')
-        ? createPickTasksFromLines(_lines, widget.payload.orderNo)
-        : [];
-    _hus = createMockHusForOrder(widget.payload.orderNo);
-    _events = createMockEventsForOrder(widget.payload.orderNo);
+    _refreshFromRepo();
   }
 
-  void _addEvent(String eventCode, [String? note]) {
-    _events = List.from(_events)
-      ..add(OrderEventMock(
-        id: 'EV-$eventCode-${DateTime.now().millisecondsSinceEpoch}',
-        eventCode: eventCode,
-        occurredAt: DateTime.now().toUtc(),
-        actor: 'system',
-        note: note,
-      ))
-      ..sort((a, b) => a.occurredAt.compareTo(b.occurredAt));
+  void _refreshFromRepo() {
+    final bundle = demoRepository.getOrderDetails(widget.payload.orderNo);
+    setState(() {
+      _orderStatus = bundle.order.status;
+      _lines = bundle.lines;
+      _pickTasks = bundle.tasks;
+      _hus = bundle.hus;
+      _events = bundle.events;
+    });
   }
 
   OrderActionsUi get _actionsUi => createMockOrderActionsUiForStatus(
@@ -104,6 +94,16 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
     hasShort: _hasShort,
     huCount: _hus.length,
   );
+
+  void _applyAction(String actionId) {
+    demoRepository.applyAction(widget.payload.orderNo, actionId);
+    _refreshFromRepo();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${actionIdToLabel(actionId)} executed (demo)')),
+      );
+    }
+  }
 
   String? get _nextAction =>
       nextAvailableActionByPriority(_actionsUi) ?? nextDisabledActionByPriority(_actionsUi);
@@ -132,166 +132,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
       if (!mounted || confirmed != true) return;
     }
     if (!mounted) return;
-    if (actionId == 'release') {
-      _applyRelease();
-      return;
-    }
-    if (actionId == 'allocate') {
-      _applyAllocate();
-      return;
-    }
-    if (actionId == 'start_picking') {
-      _applyStartPicking();
-      return;
-    }
-    if (actionId == 'complete_picking') {
-      _applyCompletePicking();
-      return;
-    }
-    if (actionId == 'start_packing') {
-      _applyStartPacking();
-      return;
-    }
-    if (actionId == 'complete_packing') {
-      _applyCompletePacking();
-      return;
-    }
-    if (actionId == 'ship') {
-      _applyShip();
-      return;
-    }
-    if (actionId == 'close') {
-      _applyClose();
-      return;
-    }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${actionIdToLabel(actionId)} executed (demo)')),
-    );
-  }
-
-  /// Draft -> Release: status Released, event released.
-  void _applyRelease() {
-    setState(() {
-      _orderStatus = 'Released';
-      _addEvent('released', 'Order released to warehouse');
-    });
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Release executed (demo)')),
-      );
-    }
-  }
-
-  /// Released -> Allocate: status Allocated, event allocated, generate pick tasks if empty.
-  void _applyAllocate() {
-    setState(() {
-      _orderStatus = 'Allocated';
-      _addEvent('allocated', 'Full allocation');
-      if (_pickTasks.isEmpty) {
-        _pickTasks = createPickTasksFromLines(_lines, widget.payload.orderNo);
-      }
-    });
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Allocate executed (demo)')),
-      );
-    }
-  }
-
-  /// Allocated -> Start Picking: status Picking, event pick_started.
-  void _applyStartPicking() {
-    setState(() {
-      _orderStatus = 'Picking';
-      _addEvent('pick_started', 'Picking started');
-    });
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Start picking executed (demo)')),
-      );
-    }
-  }
-
-  /// Picking -> Complete Picking: status Picked, event pick_completed, lines picked = reserved or ordered.
-  void _applyCompletePicking() {
-    setState(() {
-      _orderStatus = 'Picked';
-      _addEvent('pick_completed', 'Picking completed');
-      _lines = _lines.map((line) {
-        final qty = line.reserved > 0 ? line.reserved : line.ordered;
-        return line.copyWith(picked: qty);
-      }).toList();
-    });
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Complete picking executed (demo)')),
-      );
-    }
-  }
-
-  /// Picked -> Start Packing: status Packing, event pack_started.
-  void _applyStartPacking() {
-    setState(() {
-      _orderStatus = 'Packing';
-      _addEvent('pack_started', 'Packing started');
-    });
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Start packing executed (demo)')),
-      );
-    }
-  }
-
-  /// Packing -> Complete Packing: status Packed, event pack_completed, create HU if empty, lines packed = picked - short or picked.
-  void _applyCompletePacking() {
-    setState(() {
-      _orderStatus = 'Packed';
-      _addEvent('pack_completed', 'Packing completed');
-      _lines = _lines.map((line) {
-        final packedQty = line.short > 0 ? line.picked - line.short : line.picked;
-        return line.copyWith(packed: packedQty >= 0 ? packedQty : line.picked);
-      }).toList();
-      if (_hus.isEmpty) {
-        _hus = createDefaultHuFromLines(_lines, widget.payload.orderNo);
-      }
-    });
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Complete packing executed (demo)')),
-      );
-    }
-  }
-
-  /// Packed -> Ship: status Shipped, event shipped, HU Shipped, lines shipped_qty.
-  void _applyShip() {
-    setState(() {
-      _orderStatus = 'Shipped';
-      _addEvent('shipped', 'Shipment confirmed');
-      _hus = _hus.map((h) => h.copyWith(status: 'Shipped')).toList();
-      _lines = _lines.map((line) {
-        final shippedQty = line.short > 0
-            ? line.ordered - line.short
-            : line.packed;
-        return line.copyWith(shipped: shippedQty);
-      }).toList();
-    });
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ship executed (demo)')),
-      );
-    }
-  }
-
-  /// Shipped -> Close: status Closed, event closed. Next step then shows E_DONE_001.
-  void _applyClose() {
-    setState(() {
-      _orderStatus = 'Closed';
-      _addEvent('closed', 'Order closed');
-    });
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Close executed (demo)')),
-      );
-    }
+    _applyAction(actionId);
   }
 
   /// Info icon: show disabled reason (E_* including On Hold/Cancelled) or W_* warning; no execution.
@@ -327,41 +168,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
         if (!mounted || confirmed != true) return;
       }
       if (!mounted) return;
-      if (actionId == 'release') {
-        _applyRelease();
-        return;
-      }
-      if (actionId == 'allocate') {
-        _applyAllocate();
-        return;
-      }
-      if (actionId == 'start_picking') {
-        _applyStartPicking();
-        return;
-      }
-      if (actionId == 'complete_picking') {
-        _applyCompletePicking();
-        return;
-      }
-      if (actionId == 'start_packing') {
-        _applyStartPacking();
-        return;
-      }
-      if (actionId == 'complete_packing') {
-        _applyCompletePacking();
-        return;
-      }
-      if (actionId == 'ship') {
-        _applyShip();
-        return;
-      }
-      if (actionId == 'close') {
-        _applyClose();
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${actionIdToLabel(actionId)} executed (demo)')),
-      );
+      _applyAction(actionId);
       return;
     }
     final reason = _actionsUi.disabledActions[actionId];
@@ -570,7 +377,10 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                   OrderLinesTab(
                     orderNo: widget.payload.orderNo,
                     lines: _lines,
-                    onLinesChanged: (l) => setState(() => _lines = l),
+                    onLinesChanged: (l) {
+                      demoRepository.setOrderLines(widget.payload.orderNo, l);
+                      _refreshFromRepo();
+                    },
                   ),
                   PickTasksTab(orderNo: widget.payload.orderNo, tasks: _pickTasks),
                   HandlingUnitsTab(orderNo: widget.payload.orderNo, hus: _hus),

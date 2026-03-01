@@ -1,65 +1,18 @@
-// Handling Units tab v1: HU list, filters, search, HU detail drawer with contents. Mock data.
+// Handling Units tab v1: HU list, filters, search, HU detail drawer with contents.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../components/chips/index.dart';
 import '../../components/data_grid/index.dart';
+import '../../demo_data/demo_data.dart';
 import '../../theme/density.dart';
 import '../../theme/tokens.dart';
-import 'order_actions_model.dart';
-import 'order_lines_tab.dart';
 
 /// HU status: Open / Packed / Shipped
 const List<String> kHuStatuses = ['Open', 'Packed', 'Shipped'];
 
 enum HuFilter { all, open, packed, shipped }
-
-/// Mock row for one handling unit.
-class HuMock {
-  HuMock({
-    required this.id,
-    required this.huNo,
-    required this.type,
-    required this.status,
-    this.sscc,
-    required this.linesCount,
-    required this.totalQty,
-    this.weight,
-    required this.contents,
-  });
-  final String id;
-  final String huNo;
-  final String type;
-  final String status;
-  final String? sscc;
-  final int linesCount;
-  final int totalQty;
-  final double? weight;
-  final List<HuContentMock> contents;
-
-  HuMock copyWith({String? status}) {
-    return HuMock(
-      id: id,
-      huNo: huNo,
-      type: type,
-      status: status ?? this.status,
-      sscc: sscc,
-      linesCount: linesCount,
-      totalQty: totalQty,
-      weight: weight,
-      contents: contents,
-    );
-  }
-}
-
-/// One line in HU contents.
-class HuContentMock {
-  HuContentMock({required this.sku, required this.name, required this.packedQty});
-  final String sku;
-  final String name;
-  final int packedQty;
-}
 
 UiV1StatusVariant _huStatusVariant(String status) {
   final s = status.toLowerCase();
@@ -74,70 +27,12 @@ const String kEHuShipped = 'E_HU_001';
 const String kEHuNotPacked = 'E_HU_002';
 const String kEHuNothingToUnpack = 'E_HU_003';
 
-List<HuMock> _mockHus(String? orderNo) {
-  final count = getMockHuCountForOrder(orderNo ?? '');
-  if (count == 0) return [];
-  final statuses = ['Open', 'Open', 'Packed', 'Packed', 'Packed', 'Shipped', 'Shipped', 'Open', 'Packed', 'Packed', 'Shipped', 'Open', 'Packed'];
-  final types = ['Pallet', 'Box', 'Box', 'Pallet', 'Box', 'Pallet', 'Box', 'Box', 'Pallet', 'Box', 'Pallet', 'Box', 'Box'];
-  final ssccs = [null, '380123456700000001', null, '380123456700000002', '380123456700000003', '380123456700000004', '380123456700000005', null, '380123456700000006', null, '380123456700000007', null, '380123456700000008'];
-  final linesCounts = [2, 1, 3, 2, 1, 2, 1, 2, 3, 1, 2, 1, 2];
-  final totalQtys = [25, 10, 45, 20, 5, 30, 10, 15, 50, 8, 22, 6, 18];
-  final weights = [12.5, 2.0, 18.0, 8.0, 1.5, 15.0, 3.0, 4.0, 20.0, 2.5, 11.0, 1.0, 6.0];
-  final seed = (orderNo ?? 'ORD').hashCode & 0x7FFF;
-  return List.generate(count.clamp(0, 13), (i) {
-    final huId = 'HU-$seed-${i + 1}';
-    return HuMock(
-      id: huId,
-      huNo: 'HU-${i + 1}',
-      type: types[i],
-      status: statuses[i],
-      sscc: ssccs[i],
-      linesCount: linesCounts[i],
-      totalQty: totalQtys[i],
-      weight: weights[i],
-      contents: [
-        HuContentMock(sku: 'SKU-00${i % 5 + 1}', name: 'Product ${i % 5 + 1}', packedQty: totalQtys[i] ~/ 2),
-        if (linesCounts[i] > 1) HuContentMock(sku: 'SKU-00${(i + 2) % 5 + 1}', name: 'Product ${(i + 2) % 5 + 1}', packedQty: totalQtys[i] - (totalQtys[i] ~/ 2)),
-      ],
-    );
-  });
-}
-
-/// Creates mock HU list for order (used by page state and HU tab).
-List<HuMock> createMockHusForOrder(String orderNo) => _mockHus(orderNo);
-
-/// Creates one default HU from lines (used when pack_completed and hus empty). Status Packed.
-List<HuMock> createDefaultHuFromLines(List<OrderLineMock> lines, String orderNo) {
-  if (lines.isEmpty) return [];
-  final seed = (orderNo.hashCode & 0x7FFF);
-  final contents = lines.map((l) {
-    int qty = l.picked > 0 ? (l.picked - (l.short > 0 ? l.short : 0)) : l.ordered;
-    if (qty < 0) qty = 0;
-    return HuContentMock(sku: l.sku, name: l.name, packedQty: qty);
-  }).toList();
-  final totalQty = contents.fold<int>(0, (s, c) => s + c.packedQty);
-  return [
-    HuMock(
-      id: 'HU-$seed-1',
-      huNo: 'HU-1',
-      type: 'Box',
-      status: 'Packed',
-      sscc: null,
-      linesCount: contents.length,
-      totalQty: totalQty,
-      weight: totalQty * 0.5,
-      contents: contents,
-    ),
-  ];
-}
-
 /// Handling Units tab: filters + search + dense list. State preserved when switching tabs.
 class HandlingUnitsTab extends StatefulWidget {
   const HandlingUnitsTab({super.key, this.orderNo, this.hus});
 
   final String? orderNo;
-  /// When provided, tab uses this list (e.g. from page state after Ship).
-  final List<HuMock>? hus;
+  final List<DemoHandlingUnit>? hus;
 
   @override
   State<HandlingUnitsTab> createState() => _HandlingUnitsTabState();
@@ -150,12 +45,12 @@ class _HandlingUnitsTabState extends State<HandlingUnitsTab> with AutomaticKeepA
   HuFilter _filter = HuFilter.all;
   final TextEditingController _searchController = TextEditingController();
 
-  late List<HuMock> _allHus;
+  late List<DemoHandlingUnit> _allHus;
 
   @override
   void initState() {
     super.initState();
-    _allHus = widget.hus ?? _mockHus(widget.orderNo);
+    _allHus = List.from(widget.hus ?? []);
   }
 
   @override
@@ -172,7 +67,7 @@ class _HandlingUnitsTabState extends State<HandlingUnitsTab> with AutomaticKeepA
     super.dispose();
   }
 
-  List<HuMock> get _filteredRows {
+  List<DemoHandlingUnit> get _filteredRows {
     var list = _allHus;
     final query = _searchController.text.trim().toLowerCase();
     if (query.isNotEmpty) {
@@ -197,17 +92,17 @@ class _HandlingUnitsTabState extends State<HandlingUnitsTab> with AutomaticKeepA
     return list;
   }
 
-  static List<UiV1DataGridColumn<HuMock>> get _columns => [
-    UiV1DataGridColumn<HuMock>(id: 'huNo', label: 'Hu No', flex: 1, cellBuilder: (r) => Text(r.huNo, overflow: TextOverflow.ellipsis, maxLines: 1)),
-    UiV1DataGridColumn<HuMock>(id: 'type', label: 'Type', flex: 1, cellBuilder: (r) => Text(r.type, overflow: TextOverflow.ellipsis, maxLines: 1)),
-    UiV1DataGridColumn<HuMock>(id: 'status', label: 'Status', flex: 1, cellBuilder: (r) => UiV1StatusChip(label: r.status, variant: _huStatusVariant(r.status))),
-    UiV1DataGridColumn<HuMock>(id: 'sscc', label: 'SSCC', flex: 2, cellBuilder: (r) => Text(r.sscc ?? '—', overflow: TextOverflow.ellipsis, maxLines: 1)),
-    UiV1DataGridColumn<HuMock>(id: 'linesCount', label: 'Lines', flex: 1, cellBuilder: (r) => Text('${r.linesCount}', overflow: TextOverflow.ellipsis, maxLines: 1)),
-    UiV1DataGridColumn<HuMock>(id: 'totalQty', label: 'Total Qty', flex: 1, cellBuilder: (r) => Text('${r.totalQty}', overflow: TextOverflow.ellipsis, maxLines: 1)),
-    UiV1DataGridColumn<HuMock>(id: 'weight', label: 'Weight', flex: 1, cellBuilder: (r) => Text(r.weight != null ? '${r.weight}' : '—', overflow: TextOverflow.ellipsis, maxLines: 1)),
+  static List<UiV1DataGridColumn<DemoHandlingUnit>> get _columns => [
+    UiV1DataGridColumn<DemoHandlingUnit>(id: 'huNo', label: 'Hu No', flex: 1, cellBuilder: (r) => Text(r.huNo, overflow: TextOverflow.ellipsis, maxLines: 1)),
+    UiV1DataGridColumn<DemoHandlingUnit>(id: 'type', label: 'Type', flex: 1, cellBuilder: (r) => Text(r.type, overflow: TextOverflow.ellipsis, maxLines: 1)),
+    UiV1DataGridColumn<DemoHandlingUnit>(id: 'status', label: 'Status', flex: 1, cellBuilder: (r) => UiV1StatusChip(label: r.status, variant: _huStatusVariant(r.status))),
+    UiV1DataGridColumn<DemoHandlingUnit>(id: 'sscc', label: 'SSCC', flex: 2, cellBuilder: (r) => Text(r.sscc ?? '—', overflow: TextOverflow.ellipsis, maxLines: 1)),
+    UiV1DataGridColumn<DemoHandlingUnit>(id: 'linesCount', label: 'Lines', flex: 1, cellBuilder: (r) => Text('${r.linesCount}', overflow: TextOverflow.ellipsis, maxLines: 1)),
+    UiV1DataGridColumn<DemoHandlingUnit>(id: 'totalQty', label: 'Total Qty', flex: 1, cellBuilder: (r) => Text('${r.totalQty}', overflow: TextOverflow.ellipsis, maxLines: 1)),
+    UiV1DataGridColumn<DemoHandlingUnit>(id: 'weight', label: 'Weight', flex: 1, cellBuilder: (r) => Text(r.weight != null ? '${r.weight}' : '—', overflow: TextOverflow.ellipsis, maxLines: 1)),
   ];
 
-  void _openHuDetail(HuMock hu) {
+  void _openHuDetail(DemoHandlingUnit hu) {
     final width = MediaQuery.sizeOf(context).width;
     if (width >= 600) {
       _showHuDetailDrawer(context, hu);
@@ -291,7 +186,7 @@ class _HandlingUnitsTabState extends State<HandlingUnitsTab> with AutomaticKeepA
               ),
               SizedBox(height: s.sm),
               Expanded(
-                child: UiV1DataGrid<HuMock>(
+                child: UiV1DataGrid<DemoHandlingUnit>(
                   columns: _columns,
                   rows: _filteredRows,
                   rowIdGetter: (r) => r.id,
@@ -313,7 +208,7 @@ class _HandlingUnitsTabState extends State<HandlingUnitsTab> with AutomaticKeepA
 
 class _ClearHuSearchIntent extends Intent {}
 
-void _showHuDetailDrawer(BuildContext context, HuMock hu) {
+void _showHuDetailDrawer(BuildContext context, DemoHandlingUnit hu) {
   final theme = Theme.of(context);
   final s = UiV1SpacingTokens.standard;
   final density = UiV1DensityTokens.dense;
@@ -373,7 +268,7 @@ void _showHuDetailDrawer(BuildContext context, HuMock hu) {
   );
 }
 
-void _showHuDetailBottomSheet(BuildContext context, HuMock hu) {
+void _showHuDetailBottomSheet(BuildContext context, DemoHandlingUnit hu) {
   final theme = Theme.of(context);
   final s = UiV1SpacingTokens.standard;
   final density = UiV1DensityTokens.dense;
@@ -417,7 +312,7 @@ void _showHuDetailBottomSheet(BuildContext context, HuMock hu) {
 class _HuDetailContent extends StatelessWidget {
   const _HuDetailContent({required this.hu, required this.density, required this.s, required this.theme});
 
-  final HuMock hu;
+  final DemoHandlingUnit hu;
   final UiV1DensityTokens density;
   final UiV1SpacingTokens s;
   final ThemeData theme;

@@ -1,41 +1,19 @@
-// Pick Tasks tab v1: task list with quick filters, search, task detail drawer/sheet. Mock data.
+// Pick Tasks tab v1: task list with quick filters, search, task detail drawer/sheet.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../components/chips/index.dart';
 import '../../components/data_grid/index.dart';
+import '../../demo_data/demo_data.dart';
 import '../../theme/density.dart';
 import '../../theme/tokens.dart';
-import 'order_lines_tab.dart';
 
 /// Pick task status for list and filters. Display as chip.
 const List<String> kPickTaskStatuses = ['Open', 'In Progress', 'Done', 'Exception'];
 
 /// Filter segment: All | Open | In Progress | Done | Exceptions
 enum PickTaskFilter { all, open, inProgress, done, exceptions }
-
-/// Mock row for one pick task.
-class PickTaskMock {
-  PickTaskMock({
-    required this.id,
-    required this.taskNo,
-    required this.status,
-    required this.zone,
-    required this.location,
-    required this.sku,
-    required this.qty,
-    required this.pickedQty,
-  });
-  final String id;
-  final String taskNo;
-  final String status;
-  final String zone;
-  final String location;
-  final String sku;
-  final int qty;
-  final int pickedQty;
-}
 
 UiV1StatusVariant _pickTaskStatusVariant(String status) {
   final s = status.toLowerCase();
@@ -46,34 +24,12 @@ UiV1StatusVariant _pickTaskStatusVariant(String status) {
   return UiV1StatusVariant.neutral;
 }
 
-/// Creates pick tasks from order lines (used when allocate runs and tasks empty). One task per line.
-List<PickTaskMock> createPickTasksFromLines(List<OrderLineMock> lines, String orderNo) {
-  final seed = (orderNo.hashCode & 0x7FFF);
-  final zones = ['A', 'A', 'B', 'A', 'B'];
-  final locations = ['A-01-02', 'A-02-01', 'B-01-01', 'A-01-03', 'B-02-02'];
-  return List.generate(lines.length, (i) {
-    final line = lines[i];
-    final qty = line.reserved > 0 ? line.reserved : line.ordered;
-    return PickTaskMock(
-      id: 'PT-$seed-${i + 1}',
-      taskNo: 'PT-${i + 1}',
-      status: 'Open',
-      zone: zones[i % zones.length],
-      location: locations[i % locations.length],
-      sku: line.sku,
-      qty: qty,
-      pickedQty: 0,
-    );
-  });
-}
-
 /// Pick Tasks tab: filters + search + dense list. State preserved when switching tabs.
 class PickTasksTab extends StatefulWidget {
   const PickTasksTab({super.key, this.orderNo, this.tasks});
 
   final String? orderNo;
-  /// When provided, tab uses this list (e.g. from page state after allocate).
-  final List<PickTaskMock>? tasks;
+  final List<DemoPickTask>? tasks;
 
   @override
   State<PickTasksTab> createState() => _PickTasksTabState();
@@ -87,31 +43,12 @@ class _PickTasksTabState extends State<PickTasksTab> with AutomaticKeepAliveClie
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
 
-  static List<PickTaskMock> _mockTasks(String? orderNo) {
-    final statuses = ['Open', 'Open', 'In Progress', 'Done', 'Done', 'Exception', 'Open', 'In Progress', 'Done', 'Open', 'In Progress', 'Exception', 'Done', 'Open', 'In Progress'];
-    final zones = ['A', 'A', 'B', 'A', 'B', 'B', 'A', 'A', 'B', 'A', 'B', 'A', 'B', 'A', 'B'];
-    final locations = ['A-01-02', 'A-02-01', 'B-01-01', 'A-01-03', 'B-02-02', 'B-01-03', 'A-03-01', 'A-01-04', 'B-02-01', 'A-02-02', 'B-01-02', 'A-02-03', 'B-03-01', 'A-01-05', 'B-02-03'];
-    final skus = ['SKU-001', 'SKU-002', 'SKU-003', 'SKU-001', 'SKU-004', 'SKU-002', 'SKU-005', 'SKU-003', 'SKU-001', 'SKU-004', 'SKU-002', 'SKU-005', 'SKU-003', 'SKU-006', 'SKU-004'];
-    final qtys = [10, 5, 20, 10, 3, 5, 8, 20, 10, 3, 5, 8, 20, 4, 3];
-    final pickedQtys = [0, 0, 20, 10, 0, 2, 0, 15, 10, 0, 3, 0, 20, 0, 2];
-    return List.generate(15, (i) => PickTaskMock(
-      id: 'PT-${((orderNo ?? 'ORD').hashCode & 0x7FFF)}-${i + 1}',
-      taskNo: 'PT-${i + 1}',
-      status: statuses[i],
-      zone: zones[i],
-      location: locations[i],
-      sku: skus[i],
-      qty: qtys[i],
-      pickedQty: pickedQtys[i],
-    ));
-  }
-
-  late List<PickTaskMock> _allTasks;
+  late List<DemoPickTask> _allTasks;
 
   @override
   void initState() {
     super.initState();
-    _allTasks = widget.tasks ?? _mockTasks(widget.orderNo);
+    _allTasks = List.from(widget.tasks ?? []);
   }
 
   @override
@@ -129,7 +66,7 @@ class _PickTasksTabState extends State<PickTasksTab> with AutomaticKeepAliveClie
     super.dispose();
   }
 
-  List<PickTaskMock> get _filteredRows {
+  List<DemoPickTask> get _filteredRows {
     var list = _allTasks;
     final query = _searchController.text.trim().toLowerCase();
     if (query.isNotEmpty) {
@@ -159,14 +96,14 @@ class _PickTasksTabState extends State<PickTasksTab> with AutomaticKeepAliveClie
     return list;
   }
 
-  static List<UiV1DataGridColumn<PickTaskMock>> get _columns => [
-    UiV1DataGridColumn<PickTaskMock>(
+  static List<UiV1DataGridColumn<DemoPickTask>> get _columns => [
+    UiV1DataGridColumn<DemoPickTask>(
       id: 'taskNo',
       label: 'Task No',
       flex: 1,
       cellBuilder: (r) => Text(r.taskNo, overflow: TextOverflow.ellipsis, maxLines: 1),
     ),
-    UiV1DataGridColumn<PickTaskMock>(
+    UiV1DataGridColumn<DemoPickTask>(
       id: 'status',
       label: 'Status',
       flex: 1,
@@ -175,31 +112,31 @@ class _PickTasksTabState extends State<PickTasksTab> with AutomaticKeepAliveClie
         variant: _pickTaskStatusVariant(r.status),
       ),
     ),
-    UiV1DataGridColumn<PickTaskMock>(
+    UiV1DataGridColumn<DemoPickTask>(
       id: 'zone',
       label: 'Zone',
       flex: 1,
       cellBuilder: (r) => Text(r.zone, overflow: TextOverflow.ellipsis, maxLines: 1),
     ),
-    UiV1DataGridColumn<PickTaskMock>(
+    UiV1DataGridColumn<DemoPickTask>(
       id: 'location',
       label: 'Location',
       flex: 2,
       cellBuilder: (r) => Text(r.location, overflow: TextOverflow.ellipsis, maxLines: 1),
     ),
-    UiV1DataGridColumn<PickTaskMock>(
+    UiV1DataGridColumn<DemoPickTask>(
       id: 'sku',
       label: 'SKU',
       flex: 2,
       cellBuilder: (r) => Text(r.sku, overflow: TextOverflow.ellipsis, maxLines: 1),
     ),
-    UiV1DataGridColumn<PickTaskMock>(
+    UiV1DataGridColumn<DemoPickTask>(
       id: 'qty',
       label: 'Qty',
       flex: 1,
       cellBuilder: (r) => Text('${r.qty}', overflow: TextOverflow.ellipsis, maxLines: 1),
     ),
-    UiV1DataGridColumn<PickTaskMock>(
+    UiV1DataGridColumn<DemoPickTask>(
       id: 'pickedQty',
       label: 'Picked',
       flex: 1,
@@ -207,7 +144,7 @@ class _PickTasksTabState extends State<PickTasksTab> with AutomaticKeepAliveClie
     ),
   ];
 
-  void _openTaskDetail(PickTaskMock task) {
+  void _openTaskDetail(DemoPickTask task) {
     final width = MediaQuery.sizeOf(context).width;
     if (width >= 600) {
       _showTaskDetailDrawer(context, task);
@@ -296,7 +233,7 @@ class _PickTasksTabState extends State<PickTasksTab> with AutomaticKeepAliveClie
               ),
               SizedBox(height: s.sm),
               Expanded(
-                child: UiV1DataGrid<PickTaskMock>(
+                child: UiV1DataGrid<DemoPickTask>(
                   columns: _columns,
                   rows: _filteredRows,
                   rowIdGetter: (r) => r.id,
@@ -318,7 +255,7 @@ class _PickTasksTabState extends State<PickTasksTab> with AutomaticKeepAliveClie
 
 class _ClearSearchIntent extends Intent {}
 
-void _showTaskDetailDrawer(BuildContext context, PickTaskMock task) {
+void _showTaskDetailDrawer(BuildContext context, DemoPickTask task) {
   final theme = Theme.of(context);
   final s = UiV1SpacingTokens.standard;
   final density = UiV1DensityTokens.dense;
@@ -382,7 +319,7 @@ void _showTaskDetailDrawer(BuildContext context, PickTaskMock task) {
   );
 }
 
-void _showTaskDetailBottomSheet(BuildContext context, PickTaskMock task) {
+void _showTaskDetailBottomSheet(BuildContext context, DemoPickTask task) {
   final theme = Theme.of(context);
   final s = UiV1SpacingTokens.standard;
   final density = UiV1DensityTokens.dense;
@@ -442,7 +379,7 @@ class _TaskDetailContent extends StatelessWidget {
     required this.theme,
   });
 
-  final PickTaskMock task;
+  final DemoPickTask task;
   final UiV1DensityTokens density;
   final UiV1SpacingTokens s;
   final ThemeData theme;
