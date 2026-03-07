@@ -18,6 +18,7 @@ class SavedTableView {
     this.statsVisible = false,
     this.selectedMetricIds = const [],
     this.ownerUserId,
+    this.ownerDisplayName,
     this.sharedMode = SavedViewShareMode.private_,
     this.createdAt,
     this.updatedAt,
@@ -33,13 +34,16 @@ class SavedTableView {
   final UnifiedTableDensity density;
   final bool statsVisible;
   final List<String> selectedMetricIds;
-  /// Owner user id (for future ACL). Null = system/default.
+  /// Owner user id (for ACL / my vs shared). Null = system.
   final String? ownerUserId;
+  /// Owner display name for "Shared · View name — Owner" in UI. Demo only.
+  final String? ownerDisplayName;
   final SavedViewShareMode sharedMode;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
   bool get isShared => sharedMode == SavedViewShareMode.shared;
+  bool get isSystemView => id == SavedTableView.kStandardViewId;
 
   SavedTableView copyWith({
     String? id,
@@ -53,6 +57,7 @@ class SavedTableView {
     bool? statsVisible,
     List<String>? selectedMetricIds,
     String? ownerUserId,
+    String? ownerDisplayName,
     SavedViewShareMode? sharedMode,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -69,11 +74,15 @@ class SavedTableView {
       statsVisible: statsVisible ?? this.statsVisible,
       selectedMetricIds: selectedMetricIds ?? List.from(this.selectedMetricIds),
       ownerUserId: ownerUserId ?? this.ownerUserId,
+      ownerDisplayName: ownerDisplayName ?? this.ownerDisplayName,
       sharedMode: sharedMode ?? this.sharedMode,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
+
+  /// System built-in view id. Applying it = baseline state. Not deletable, not editable.
+  static const String kStandardViewId = 'standard';
 
   /// Export current state to a saved view (same tableId). Sets timestamps if not provided.
   static SavedTableView fromState({
@@ -82,6 +91,7 @@ class SavedTableView {
     required String name,
     required UnifiedTableState state,
     String? ownerUserId,
+    String? ownerDisplayName,
     SavedViewShareMode sharedMode = SavedViewShareMode.private_,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -99,6 +109,7 @@ class SavedTableView {
       statsVisible: state.statsVisible,
       selectedMetricIds: List.from(state.selectedMetricIds),
       ownerUserId: ownerUserId,
+      ownerDisplayName: ownerDisplayName,
       sharedMode: sharedMode,
       createdAt: createdAt ?? now,
       updatedAt: updatedAt ?? now,

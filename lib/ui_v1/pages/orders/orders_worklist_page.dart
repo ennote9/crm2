@@ -39,7 +39,7 @@ class _OrdersWorklistPageState extends State<OrdersWorklistPage> {
     _controller = UnifiedTableController<DemoOrder>(
       config: createOrdersTableConfig(_openOrderDetails),
     );
-    _savedViews = List<SavedTableView>.from(_controller.config.savedViews);
+    _savedViews = [];
     _searchController = TextEditingController(text: _controller.state.searchQuery);
     _searchFocusNode = FocusNode();
   }
@@ -114,20 +114,11 @@ class _OrdersWorklistPageState extends State<OrdersWorklistPage> {
       return UnifiedFilterChipItem(
         label: label,
         onRemove: () {
-          _controller.state = _controller.state.removeFilter(columnId: d.columnId);
+          _controller.state = _controller.state.removeFilter(filterId: d.identity);
           setState(() {});
         },
       );
     }).toList();
-  }
-
-  String? get _activeViewName {
-    final id = _controller.state.activeViewId;
-    if (id == null) return 'Custom';
-    for (final v in _controller.config.savedViews) {
-      if (v.id == id) return v.name;
-    }
-    return id;
   }
 
   Map<String, String> get _statsValues {
@@ -196,6 +187,8 @@ class _OrdersWorklistPageState extends State<OrdersWorklistPage> {
               savedViews: _savedViews,
               onSavedViewsChanged: (list) => setState(() => _savedViews = list),
               onClose: () => Navigator.of(context).pop(),
+              currentUserId: currentUserStore.currentUser.userId,
+              currentUserDisplayName: currentUserStore.currentUser.fullName,
             ),
           ),
           body: Column(
@@ -228,28 +221,6 @@ class _OrdersWorklistPageState extends State<OrdersWorklistPage> {
                 metricDefinitions: _controller.config.availableMetrics,
                 selectedMetricIds: _controller.state.selectedMetricIds,
                 values: _statsValues,
-              ),
-            ],
-            if (_controller.state.searchQuery.isNotEmpty ||
-                _controller.state.filters.isNotEmpty) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
-                child: UnifiedFilterStateSummary(
-                  searchQuery: _controller.state.searchQuery,
-                  filterDescriptors: _controller.state.filters,
-                  getColumnLabel: (id) {
-                    for (final c in _controller.config.columns) {
-                      if (c.id == id) return c.label;
-                    }
-                    return id;
-                  },
-                  onRemoveFilter: (columnId) {
-                    _controller.state = _controller.state.removeFilter(columnId: columnId);
-                    setState(() {});
-                  },
-                  viewName: _activeViewName,
-                  onClearSearch: _onSearchClear,
-                ),
               ),
             ],
             Expanded(

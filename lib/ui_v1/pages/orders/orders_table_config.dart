@@ -8,12 +8,6 @@ import '../../demo_data/demo_data.dart';
 
 const String _kOrdersTableId = 'orders';
 
-/// Saved view ids for Orders.
-const String kOrdersViewAll = 'all';
-const String kOrdersViewOnHold = 'on_hold';
-const String kOrdersViewShortage = 'shortage';
-const String kOrdersViewToday = 'today';
-
 UnifiedTableConfig<DemoOrder> createOrdersTableConfig(void Function(DemoOrder) rowOpen) {
   return UnifiedTableConfig<DemoOrder>(
     tableId: _kOrdersTableId,
@@ -27,7 +21,7 @@ UnifiedTableConfig<DemoOrder> createOrdersTableConfig(void Function(DemoOrder) r
     availableMetrics: _ordersMetrics,
     defaultMetricIds: const ['total', 'inProgress', 'onHold', 'shortage'],
     rowOpen: rowOpen,
-    savedViews: _ordersSavedViews,
+    savedViews: const [],
   );
 }
 
@@ -108,71 +102,4 @@ final List<UnifiedStatsMetricDefinition<DemoOrder>> _ordersMetrics = [
   ),
 ];
 
-List<SavedTableView> get _ordersSavedViews => [
-      SavedTableView(
-        id: kOrdersViewAll,
-        tableId: _kOrdersTableId,
-        name: 'All',
-        filters: const [],
-        sorts: const [],
-        visibleColumnIds: const ['orderNo', 'status', 'warehouse', 'created'],
-        columnOrder: const ['orderNo', 'status', 'warehouse', 'created'],
-        density: UnifiedTableDensity.dense,
-        statsVisible: false,
-        selectedMetricIds: const ['total', 'inProgress', 'onHold', 'shortage'],
-      ),
-      SavedTableView(
-        id: kOrdersViewOnHold,
-        tableId: _kOrdersTableId,
-        name: 'On Hold',
-        filters: [
-          UnifiedFilterDescriptor(
-            columnId: 'status',
-            operator: UnifiedFilterOperator.equals,
-            value: 'On Hold',
-          ),
-        ],
-        sorts: const [],
-        visibleColumnIds: const ['orderNo', 'status', 'warehouse', 'created'],
-        columnOrder: const ['orderNo', 'status', 'warehouse', 'created'],
-        density: UnifiedTableDensity.dense,
-        statsVisible: false,
-        selectedMetricIds: const ['total', 'inProgress', 'onHold', 'shortage'],
-      ),
-      SavedTableView(
-        id: kOrdersViewShortage,
-        tableId: _kOrdersTableId,
-        name: 'Shortage',
-        filters: [
-          UnifiedFilterDescriptor(
-            columnId: 'status',
-            operator: UnifiedFilterOperator.equals,
-            value: 'Shortage',
-          ),
-        ],
-        sorts: const [],
-        visibleColumnIds: const ['orderNo', 'status', 'warehouse', 'created'],
-        columnOrder: const ['orderNo', 'status', 'warehouse', 'created'],
-        density: UnifiedTableDensity.dense,
-        statsVisible: false,
-        selectedMetricIds: const ['total', 'inProgress', 'onHold', 'shortage'],
-      ),
-      SavedTableView(
-        id: kOrdersViewToday,
-        tableId: _kOrdersTableId,
-        name: 'Today',
-        filters: [
-          UnifiedFilterDescriptor(
-            columnId: 'created',
-            operator: UnifiedFilterOperator.startsWith,
-            value: '2025-01',
-          ),
-        ],
-        sorts: const [],
-        visibleColumnIds: const ['orderNo', 'status', 'warehouse', 'created'],
-        columnOrder: const ['orderNo', 'status', 'warehouse', 'created'],
-        density: UnifiedTableDensity.dense,
-        statsVisible: false,
-        selectedMetricIds: const ['total', 'inProgress', 'onHold', 'shortage'],
-      ),
-    ];
+// No default saved views. Standard = config.initialState (built-in). User views in page state.

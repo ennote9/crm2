@@ -45,6 +45,7 @@ void showUnifiedViewPanel<T>({
 }
 
 /// Content for View Panel. Use inside [Drawer]/[EndDrawer] or via [showUnifiedViewPanel].
+/// [currentUserId] and [currentUserDisplayName] used for Save/Save as/Delete and "Shared · Name — Owner".
 class UnifiedViewPanelContent<T> extends StatefulWidget {
   const UnifiedViewPanelContent({
     super.key,
@@ -55,6 +56,8 @@ class UnifiedViewPanelContent<T> extends StatefulWidget {
     this.savedViews,
     this.onSavedViewsChanged,
     this.onClose,
+    this.currentUserId,
+    this.currentUserDisplayName,
   });
 
   final UnifiedTableController<T> controller;
@@ -64,6 +67,8 @@ class UnifiedViewPanelContent<T> extends StatefulWidget {
   final List<SavedTableView>? savedViews;
   final void Function(List<SavedTableView>)? onSavedViewsChanged;
   final VoidCallback? onClose;
+  final String? currentUserId;
+  final String? currentUserDisplayName;
 
   @override
   State<UnifiedViewPanelContent<T>> createState() => _UnifiedViewPanelContentState<T>();
@@ -92,24 +97,42 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
     _applyState(config.initialState);
   }
 
+  void _applyStandardView() {
+    _applyState(config.initialState.copyWith(activeViewId: SavedTableView.kStandardViewId));
+  }
+
   SavedTableView? get _currentView {
     final id = state.activeViewId;
     if (id == null) return null;
+    if (id == SavedTableView.kStandardViewId) return null;
     for (final v in _savedViews) {
       if (v.id == id) return v;
     }
     return null;
   }
 
-  void _saveCurrentView() {
+  bool get _isCurrentUserView {
     final v = _currentView;
-    if (v == null || widget.onSavedViewsChanged == null) return;
+    if (v == null) return false;
+    return v.ownerUserId == widget.currentUserId;
+  }
+
+  bool get _canSaveCurrentView =>
+      _currentView != null && _isCurrentUserView && widget.onSavedViewsChanged != null;
+
+  bool get _canDeleteCurrentView =>
+      _currentView != null && _isCurrentUserView && widget.onSavedViewsChanged != null;
+
+  void _saveCurrentView() {
+    if (!_canSaveCurrentView || widget.onSavedViewsChanged == null) return;
+    final v = _currentView!;
     final updated = SavedTableView.fromState(
       id: v.id,
       tableId: config.tableId,
       name: v.name,
       state: state,
       ownerUserId: v.ownerUserId,
+      ownerDisplayName: v.ownerDisplayName,
       sharedMode: v.sharedMode,
       createdAt: v.createdAt,
       updatedAt: DateTime.now(),
@@ -121,34 +144,56 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
   }
 
   void _saveAsNewView() async {
-    final name = await showDialog<String>(
+    final result = await showDialog<({String name, bool shared})>(
       context: context,
       builder: (ctx) {
-        final c = TextEditingController(text: _currentView?.name ?? '');
-        return AlertDialog(
-          title: const Text('Save as new view'),
-          content: TextField(
-            controller: c,
-            decoration: const InputDecoration(labelText: 'Name'),
-            autofocus: true,
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, c.text.trim()),
-              child: const Text('Save'),
-            ),
-          ],
+        final nameController = TextEditingController(text: _currentView?.name ?? '');
+        bool shared = _currentView?.isShared ?? false;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Save as new view'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(labelText: 'Name'),
+                    autofocus: true,
+                  ),
+                  const SizedBox(height: 16),
+                  CheckboxListTile(
+                    title: const Text('Shared with others'),
+                    value: shared,
+                    onChanged: (v) => setDialogState(() => shared = v ?? false),
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx, (name: nameController.text.trim(), shared: shared)),
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
-    if (name == null || name.isEmpty || widget.onSavedViewsChanged == null) return;
+    if (result == null || result.name.isEmpty || widget.onSavedViewsChanged == null) return;
     final newId = 'view_${DateTime.now().millisecondsSinceEpoch}';
     final newView = SavedTableView.fromState(
       id: newId,
       tableId: config.tableId,
-      name: name,
+      name: result.name,
       state: state,
+      ownerUserId: widget.currentUserId,
+      ownerDisplayName: widget.currentUserDisplayName,
+      sharedMode: result.shared ? SavedViewShareMode.shared : SavedViewShareMode.private_,
     );
     final next = List<SavedTableView>.from(_savedViews)..add(newView);
     widget.onSavedViewsChanged!(next);
@@ -158,8 +203,8 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
   }
 
   void _deleteCurrentView() {
-    final v = _currentView;
-    if (v == null || widget.onSavedViewsChanged == null) return;
+    if (!_canDeleteCurrentView || widget.onSavedViewsChanged == null) return;
+    final v = _currentView!;
     final next = _savedViews.where((x) => x.id != v.id).toList();
     widget.onSavedViewsChanged!(next);
     _applyState(state.copyWith(activeViewId: null));
@@ -167,13 +212,27 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
 
   void _toggleShareCurrentView() {
     final v = _currentView;
-    if (v == null || widget.onSavedViewsChanged == null) return;
+    if (v == null || !_isCurrentUserView || widget.onSavedViewsChanged == null) return;
     final nextMode = v.sharedMode == SavedViewShareMode.shared ? SavedViewShareMode.private_ : SavedViewShareMode.shared;
     final updated = v.copyWith(sharedMode: nextMode, updatedAt: DateTime.now());
     final next = _savedViews.map((x) => x.id == v.id ? updated : x).toList();
     widget.onSavedViewsChanged!(next);
     widget.onStateChanged();
     setState(() {});
+  }
+
+  List<SavedTableView> get _myViews =>
+      _savedViews.where((v) => v.ownerUserId == widget.currentUserId).toList();
+
+  List<SavedTableView> get _sharedViewsFromOthers =>
+      _savedViews.where((v) => v.isShared && v.ownerUserId != widget.currentUserId).toList();
+
+  String _viewDisplayLabel(SavedTableView v) {
+    if (v.ownerUserId == widget.currentUserId) {
+      return v.isShared ? '${v.name} (Shared)' : v.name;
+    }
+    final owner = v.ownerDisplayName ?? v.ownerUserId ?? 'Unknown';
+    return '${v.name} — $owner';
   }
 
   @override
@@ -183,70 +242,100 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
     final s = tokens.spacing;
     final hasCrud = widget.savedViews != null && widget.onSavedViewsChanged != null;
     final currentView = _currentView;
+    final myViews = _myViews;
+    final sharedOthers = _sharedViewsFromOthers;
+
+    final viewDropdownItems = <DropdownMenuItem<String?>>[
+      const DropdownMenuItem(value: null, child: Text('Custom')),
+      DropdownMenuItem<String?>(
+        value: SavedTableView.kStandardViewId,
+        child: const Text('Standard'),
+      ),
+      ...myViews.map((v) => DropdownMenuItem<String?>(value: v.id, child: Text(_viewDisplayLabel(v)))),
+      ...sharedOthers.map((v) => DropdownMenuItem<String?>(value: v.id, child: Text(_viewDisplayLabel(v)))),
+    ];
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Padding(
-          padding: EdgeInsets.all(s.md),
+        Container(
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(horizontal: s.md, vertical: s.sm),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+            border: Border(bottom: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.2))),
+          ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Text('View', style: theme.textTheme.titleSmall),
-                  SizedBox(width: s.xs),
-                  DropdownButton<String?>(
-                    value: state.activeViewId,
-                    isDense: true,
-                    underline: const SizedBox.shrink(),
-                    items: [
-                      const DropdownMenuItem<String?>(value: null, child: Text('Custom')),
-                      ..._savedViews.map((v) => DropdownMenuItem<String?>(value: v.id, child: Text(v.name))),
-                    ],
-                    onChanged: (id) {
-                      if (id == null) {
-                        _applyState(state.copyWith(activeViewId: null));
-                      } else {
-                        for (final v in _savedViews) {
-                          if (v.id == id) {
-                            widget.controller.applyView(v);
-                            widget.onStateChanged();
-                            setState(() {});
-                            break;
+                  SizedBox(
+                    width: 56,
+                    child: Text('View', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                  ),
+                  Expanded(
+                    child: DropdownButton<String?>(
+                      value: state.activeViewId,
+                      isDense: true,
+                      isExpanded: true,
+                      underline: const SizedBox.shrink(),
+                      items: viewDropdownItems,
+                      onChanged: (id) {
+                        if (id == null) {
+                          _applyState(state.copyWith(activeViewId: null));
+                        } else if (id == SavedTableView.kStandardViewId) {
+                          _applyStandardView();
+                        } else {
+                          for (final v in _savedViews) {
+                            if (v.id == id) {
+                              widget.controller.applyView(v);
+                              widget.onStateChanged();
+                              setState(() {});
+                              break;
+                            }
                           }
                         }
-                      }
-                    },
+                      },
+                    ),
                   ),
                 ],
               ),
               if (hasCrud) ...[
-                SizedBox(height: s.xs),
+                SizedBox(height: s.sm),
                 Wrap(
-                  spacing: s.xxs,
-                  runSpacing: s.xxs,
+                  spacing: s.xs,
+                  runSpacing: s.xs,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     FilledButton.tonal(
-                      onPressed: currentView != null ? _saveCurrentView : null,
+                      onPressed: _canSaveCurrentView ? _saveCurrentView : null,
                       style: FilledButton.styleFrom(minimumSize: const Size(0, 32)),
                       child: const Text('Save'),
                     ),
-                    FilledButton.tonal(
+                    OutlinedButton(
                       onPressed: () => _saveAsNewView(),
-                      style: FilledButton.styleFrom(minimumSize: const Size(0, 32)),
+                      style: OutlinedButton.styleFrom(minimumSize: const Size(0, 32)),
                       child: const Text('Save as'),
                     ),
                     TextButton(
-                      onPressed: currentView != null ? _deleteCurrentView : null,
+                      onPressed: _canDeleteCurrentView ? _deleteCurrentView : null,
+                      style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
                       child: const Text('Delete'),
                     ),
-                    if (currentView != null)
+                    if (currentView != null && _isCurrentUserView)
                       TextButton(
                         onPressed: _toggleShareCurrentView,
+                        style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
                         child: Text(currentView.isShared ? 'Shared' : 'Private'),
                       ),
-                    TextButton(onPressed: _reset, child: const Text('Reset')),
+                    TextButton(
+                      onPressed: _reset,
+                      style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
+                      child: const Text('Reset'),
+                    ),
                   ],
                 ),
               ] else
@@ -257,24 +346,24 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
             ],
           ),
         ),
-        Divider(height: 1),
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
+        Container(
+          padding: EdgeInsets.symmetric(horizontal: s.xs, vertical: s.xxs),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface.withValues(alpha: 0.3),
+            border: Border(bottom: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.2))),
+          ),
           child: Row(
             children: [
               _sectionTab(0, 'Filters'),
-              SizedBox(width: s.xxs),
               _sectionTab(1, 'Columns'),
-              SizedBox(width: s.xxs),
               _sectionTab(2, 'Sort'),
-              SizedBox(width: s.xxs),
               _sectionTab(3, 'Statistics'),
             ],
           ),
         ),
         Expanded(
           child: SingleChildScrollView(
-            padding: EdgeInsets.all(s.md),
+            padding: EdgeInsets.symmetric(horizontal: s.md, vertical: s.sm),
             child: IndexedStack(
               index: _selectedTabIndex,
               sizing: StackFit.loose,
@@ -303,7 +392,6 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
                 ),
                 _StatisticsSection<T>(
                   controller: widget.controller,
-                  visibleRows: widget.controller.getVisibleRows(widget.fullList),
                   onStateChanged: () {
                     widget.onStateChanged();
                     setState(() {});
@@ -313,9 +401,11 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
             ),
           ),
         ),
-        Divider(height: 1),
-        Padding(
-          padding: EdgeInsets.all(s.sm),
+        Container(
+          padding: EdgeInsets.symmetric(horizontal: s.md, vertical: s.xs),
+          decoration: BoxDecoration(
+            border: Border(top: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.15))),
+          ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
@@ -338,14 +428,18 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
 
   Widget _sectionTab(int index, String label) {
     final theme = Theme.of(context);
+    final tokens = Theme.of(context).brightness == Brightness.dark ? UiV1Tokens.dark : UiV1Tokens.light;
     final selected = _selectedTabIndex == index;
     return TextButton(
       onPressed: () => setState(() => _selectedTabIndex = index),
       style: TextButton.styleFrom(
-        foregroundColor: selected ? theme.colorScheme.primary : theme.colorScheme.onSurface,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        foregroundColor: selected ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
+        padding: EdgeInsets.symmetric(horizontal: tokens.spacing.sm, vertical: tokens.spacing.xs),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(tokens.radius.xs),
+        ),
       ),
-      child: Text(label),
+      child: Text(label, style: theme.textTheme.labelMedium),
     );
   }
 }
@@ -539,9 +633,9 @@ class _InlineFilterRowState<T> extends State<_InlineFilterRow<T>> {
       margin: EdgeInsets.only(bottom: s.sm),
       padding: EdgeInsets.all(s.sm),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(tokens.radius.sm),
-        border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.3)),
+        border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.25)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -560,7 +654,7 @@ class _InlineFilterRowState<T> extends State<_InlineFilterRow<T>> {
                     isDense: true,
                     labelText: 'Column',
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(tokens.radius.xs)),
-                    contentPadding: EdgeInsets.symmetric(horizontal: s.xs, vertical: s.xxs),
+                    contentPadding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
                   ),
                   items: widget.filterableColumnIds.map((id) {
                     return DropdownMenuItem(value: id, child: Text(_columnLabel(widget.config, id)));
@@ -571,7 +665,7 @@ class _InlineFilterRowState<T> extends State<_InlineFilterRow<T>> {
                     _emit(UnifiedFilterDescriptor(
                       columnId: columnId,
                       operator: _defaultOperator(_effectiveFilterMode(col)),
-                      id: widget.descriptor.id,
+                      id: widget.descriptor.id ?? widget.descriptor.columnId,
                     ));
                   },
                 ),
@@ -585,7 +679,7 @@ class _InlineFilterRowState<T> extends State<_InlineFilterRow<T>> {
                     isDense: true,
                     labelText: 'Operator',
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(tokens.radius.xs)),
-                    contentPadding: EdgeInsets.symmetric(horizontal: s.xs, vertical: s.xxs),
+                    contentPadding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
                   ),
                   items: operators.map((op) {
                     return DropdownMenuItem(
@@ -601,11 +695,12 @@ class _InlineFilterRowState<T> extends State<_InlineFilterRow<T>> {
                       value: widget.descriptor.value,
                       secondaryValue: widget.descriptor.secondaryValue,
                       values: widget.descriptor.values,
-                      id: widget.descriptor.id,
+                      id: widget.descriptor.id ?? widget.descriptor.columnId,
                     ));
                   },
                 ),
               ),
+              SizedBox(width: s.xxs),
               IconButton(
                 icon: const Icon(UiIcons.close, size: 18),
                 onPressed: widget.onRemove,
@@ -618,7 +713,9 @@ class _InlineFilterRowState<T> extends State<_InlineFilterRow<T>> {
             ],
           ),
           if (_needsValue) ...[
-            SizedBox(height: s.xs),
+            SizedBox(height: s.sm),
+            Text('Value', style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+            SizedBox(height: s.xxs),
             if (mode == _FilterMode.text) ..._buildTextValueEditor(tokens, theme),
             if (mode == _FilterMode.enum_) ..._buildEnumValueEditor(tokens, theme),
             if (mode == _FilterMode.date) ..._buildDateValueEditor(tokens, theme),
@@ -631,6 +728,7 @@ class _InlineFilterRowState<T> extends State<_InlineFilterRow<T>> {
   List<Widget> _buildTextValueEditor(UiV1Tokens tokens, ThemeData theme) {
     final s = tokens.spacing;
     if (_isTextBulk) {
+      final (parsed, unique) = bulkPasteCounts(_textController.text);
       return [
         TextField(
           controller: _textController,
@@ -638,10 +736,9 @@ class _InlineFilterRowState<T> extends State<_InlineFilterRow<T>> {
           minLines: 2,
           decoration: InputDecoration(
             isDense: true,
-            labelText: 'Values',
-            hintText: 'Paste or type; separate by newline, comma, semicolon, tab',
+            hintText: 'Paste or type; separators: newline, comma, semicolon, tab',
             alignLabelWithHint: true,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(tokens.radius.sm)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(tokens.radius.xs)),
             contentPadding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
           ),
           onChanged: (_) {
@@ -652,15 +749,18 @@ class _InlineFilterRowState<T> extends State<_InlineFilterRow<T>> {
                 columnId: widget.descriptor.columnId,
                 operator: widget.descriptor.operator,
                 values: parsed,
-                id: widget.descriptor.id,
+                id: widget.descriptor.id ?? widget.descriptor.columnId,
               ));
             }
           },
         ),
         SizedBox(height: s.xxs),
         Text(
-          'Parsed: ${bulkPasteCounts(_textController.text).$1}, Unique: ${bulkPasteCounts(_textController.text).$2}',
-          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          'Parsed: $parsed · Unique: $unique',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontSize: 11,
+          ),
         ),
       ];
     }
@@ -679,7 +779,7 @@ class _InlineFilterRowState<T> extends State<_InlineFilterRow<T>> {
             columnId: widget.descriptor.columnId,
             operator: widget.descriptor.operator,
             value: v.isEmpty ? null : v,
-            id: widget.descriptor.id,
+            id: widget.descriptor.id ?? widget.descriptor.columnId,
           ));
         },
       ),
@@ -713,7 +813,7 @@ class _InlineFilterRowState<T> extends State<_InlineFilterRow<T>> {
               columnId: widget.descriptor.columnId,
               operator: widget.descriptor.operator,
               value: v,
-              id: widget.descriptor.id,
+              id: widget.descriptor.id ?? widget.descriptor.columnId,
             ));
           },
         ),
@@ -721,62 +821,65 @@ class _InlineFilterRowState<T> extends State<_InlineFilterRow<T>> {
     }
 
     return [
-      ExpansionTile(
-        title: Text(
-          _enumSelection.isEmpty ? 'Select values' : '${_enumSelection.length} selected',
-          style: theme.textTheme.bodySmall,
+      Container(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(tokens.radius.xs),
+          border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.2)),
         ),
-        initiallyExpanded: _enumSelection.isNotEmpty,
-        children: [
-          Padding(
-            padding: EdgeInsets.only(left: s.xs, right: s.xs, bottom: s.xs),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Search…',
-                    isDense: true,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(tokens.radius.xs)),
-                  ),
-                  onChanged: (v) => setState(() => _enumSearch = v),
-                ),
-                SizedBox(height: s.xs),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 200),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: filtered.length,
-                    itemBuilder: (_, i) {
-                      final value = filtered[i];
-                      final selected = _enumSelection.contains(value);
-                      return CheckboxListTile(
-                        dense: true,
-                        title: Text(value, style: theme.textTheme.bodySmall, overflow: TextOverflow.ellipsis),
-                        value: selected,
-                        onChanged: (v) {
-                          final next = Set<String>.from(_enumSelection);
-                          if (v == true) {
-                            next.add(value);
-                          } else {
-                            next.remove(value);
-                          }
-                          setState(() => _enumSelection = next);
-                          _emit(UnifiedFilterDescriptor(
-                            columnId: widget.descriptor.columnId,
-                            operator: widget.descriptor.operator,
-                            values: next.toList(),
-                            id: widget.descriptor.id,
-                          ));
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
+        child: ExpansionTile(
+          title: Text(
+            _enumSelection.isEmpty ? 'Select values' : '${_enumSelection.length} selected',
+            style: theme.textTheme.bodySmall,
           ),
-        ],
+          initiallyExpanded: _enumSelection.isNotEmpty,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(tokens.radius.xs)),
+          childrenPadding: EdgeInsets.only(left: s.xs, right: s.xs, bottom: s.sm),
+          children: [
+            TextField(
+              decoration: InputDecoration(
+                hintText: 'Search…',
+                isDense: true,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(tokens.radius.xs)),
+                contentPadding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xxs),
+              ),
+              onChanged: (v) => setState(() => _enumSearch = v),
+            ),
+            SizedBox(height: s.xs),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 180),
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: filtered.length,
+                itemBuilder: (_, i) {
+                  final value = filtered[i];
+                  final selected = _enumSelection.contains(value);
+                  return CheckboxListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(value, style: theme.textTheme.bodySmall, overflow: TextOverflow.ellipsis),
+                    value: selected,
+                    onChanged: (v) {
+                      final next = Set<String>.from(_enumSelection);
+                      if (v == true) {
+                        next.add(value);
+                      } else {
+                        next.remove(value);
+                      }
+                      setState(() => _enumSelection = next);
+                      _emit(UnifiedFilterDescriptor(
+                        columnId: widget.descriptor.columnId,
+                        operator: widget.descriptor.operator,
+                        values: next.toList(),
+                        id: widget.descriptor.id ?? widget.descriptor.columnId,
+                      ));
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     ];
   }
@@ -806,7 +909,7 @@ class _InlineFilterRowState<T> extends State<_InlineFilterRow<T>> {
                       operator: UnifiedFilterOperator.between,
                       value: from,
                       secondaryValue: to,
-                      id: widget.descriptor.id,
+                      id: widget.descriptor.id ?? widget.descriptor.columnId,
                     ));
                   }
                 },
@@ -832,7 +935,7 @@ class _InlineFilterRowState<T> extends State<_InlineFilterRow<T>> {
                       operator: UnifiedFilterOperator.between,
                       value: from,
                       secondaryValue: to,
-                      id: widget.descriptor.id,
+                      id: widget.descriptor.id ?? widget.descriptor.columnId,
                     ));
                   }
                 },
@@ -858,7 +961,7 @@ class _InlineFilterRowState<T> extends State<_InlineFilterRow<T>> {
             columnId: widget.descriptor.columnId,
             operator: widget.descriptor.operator,
             value: v.isEmpty ? null : v,
-            id: widget.descriptor.id,
+            id: widget.descriptor.id ?? widget.descriptor.columnId,
           ));
         },
       ),
@@ -891,6 +994,8 @@ class _FiltersSection<T> extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
+        Text('Filter conditions', style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+        SizedBox(height: s.xs),
         if (filters.isNotEmpty) ...[
           ...filters.map((f) {
             return _InlineFilterRow<T>(
@@ -901,14 +1006,14 @@ class _FiltersSection<T> extends StatelessWidget {
               filterableColumnIds: filterableColumnIds,
               onChanged: (d) {
                 if (d == null) {
-                  controller.state = controller.state.removeFilter(columnId: f.columnId);
+                  controller.state = controller.state.removeFilter(filterId: f.identity);
                 } else {
                   controller.state = controller.state.addOrReplaceFilter(d);
                 }
                 onStateChanged();
               },
               onRemove: () {
-                controller.state = controller.state.removeFilter(columnId: f.columnId);
+                controller.state = controller.state.removeFilter(filterId: f.identity);
                 onStateChanged();
               },
             );
@@ -925,15 +1030,15 @@ class _FiltersSection<T> extends StatelessWidget {
           ),
         ],
         if (filterableColumns.isNotEmpty) ...[
-          Text('Add condition', style: theme.textTheme.labelMedium),
-          SizedBox(height: s.xxs),
-          OutlinedButton.icon(
+          SizedBox(height: s.sm),
+          TextButton.icon(
             onPressed: () {
               final first = filterableColumns.first;
               final mode = _effectiveFilterMode(first);
               controller.state = controller.state.addOrReplaceFilter(UnifiedFilterDescriptor(
                 columnId: first.id,
                 operator: _defaultOperator(mode),
+                id: 'f_${DateTime.now().millisecondsSinceEpoch}',
               ));
               onStateChanged();
             },
@@ -946,7 +1051,7 @@ class _FiltersSection<T> extends StatelessWidget {
   }
 }
 
-class _ColumnsSection<T> extends StatelessWidget {
+class _ColumnsSection<T> extends StatefulWidget {
   const _ColumnsSection({
     required this.controller,
     required this.onStateChanged,
@@ -956,23 +1061,85 @@ class _ColumnsSection<T> extends StatelessWidget {
   final VoidCallback onStateChanged;
 
   @override
+  State<_ColumnsSection<T>> createState() => _ColumnsSectionState<T>();
+}
+
+class _ColumnsSectionState<T> extends State<_ColumnsSection<T>> {
+  String? _selectedColumnId;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final tokens = Theme.of(context).brightness == Brightness.dark ? UiV1Tokens.dark : UiV1Tokens.light;
     final s = tokens.spacing;
-    final config = controller.config;
-    final order = controller.state.columnOrder ?? config.columns.map((c) => c.id).toList();
-    final visibleIds = controller.state.visibleColumnIds?.toSet() ?? config.columns.map((c) => c.id).toSet();
+    final config = widget.controller.config;
+    final order = widget.controller.state.columnOrder ?? config.columns.map((c) => c.id).toList();
+    final visibleIds = widget.controller.state.visibleColumnIds?.toSet() ?? config.columns.map((c) => c.id).toSet();
     final visibleOrdered = order.where((id) => visibleIds.contains(id)).toList();
     final hiddenIds = order.where((id) => !visibleIds.contains(id)).toList();
     final defaultOrder = config.defaultVisibleColumnIds ?? config.columns.map((c) => c.id).toList();
+    final radius = tokens.radius;
+    final selectedInVisible = _selectedColumnId != null && visibleIds.contains(_selectedColumnId);
+    final selectedInHidden = _selectedColumnId != null && hiddenIds.contains(_selectedColumnId);
+    final selectedIndex = selectedInVisible ? visibleOrdered.indexOf(_selectedColumnId!) : -1;
+
+    void moveUp() {
+      if (!selectedInVisible || selectedIndex <= 0) return;
+      final next = List<String>.from(visibleOrdered);
+      next.insert(selectedIndex - 1, next.removeAt(selectedIndex));
+      widget.controller.state = widget.controller.state.copyWithAsCustom(
+        columnOrder: next + hiddenIds,
+        visibleColumnIds: next,
+      );
+      widget.onStateChanged();
+      setState(() {});
+    }
+
+    void moveDown() {
+      if (!selectedInVisible || selectedIndex < 0 || selectedIndex >= visibleOrdered.length - 1) return;
+      final next = List<String>.from(visibleOrdered);
+      next.insert(selectedIndex + 1, next.removeAt(selectedIndex));
+      widget.controller.state = widget.controller.state.copyWithAsCustom(
+        columnOrder: next + hiddenIds,
+        visibleColumnIds: next,
+      );
+      widget.onStateChanged();
+      setState(() {});
+    }
+
+    void hideSelected() {
+      if (!selectedInVisible || _selectedColumnId == null) return;
+      final col = _columnById(config, _selectedColumnId!);
+      if (col != null && !col.hideable) return;
+      final next = visibleIds.where((id) => id != _selectedColumnId).toSet();
+      if (next.isEmpty) return;
+      final visibleOrderedNew = order.where((id) => next.contains(id)).toList();
+      widget.controller.state = widget.controller.state.copyWithAsCustom(
+        visibleColumnIds: visibleOrderedNew,
+        columnOrder: order,
+      );
+      widget.onStateChanged();
+      setState(() => _selectedColumnId = null);
+    }
+
+    void showSelected() {
+      if (!selectedInHidden || _selectedColumnId == null) return;
+      final next = Set<String>.from(visibleIds)..add(_selectedColumnId!);
+      final visibleOrderedNew = order.where((id) => next.contains(id)).toList();
+      widget.controller.state = widget.controller.state.copyWithAsCustom(
+        visibleColumnIds: visibleOrderedNew,
+        columnOrder: order,
+      );
+      widget.onStateChanged();
+      setState(() => _selectedColumnId = null);
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('Visible columns', style: theme.textTheme.labelMedium),
-        SizedBox(height: s.xxs),
+        Text('Visible columns', style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+        SizedBox(height: s.xs),
         if (visibleOrdered.isEmpty)
           Padding(
             padding: EdgeInsets.symmetric(vertical: s.sm),
@@ -988,126 +1155,167 @@ class _ColumnsSection<T> extends StatelessWidget {
               final next = List<String>.from(visibleOrdered);
               final item = next.removeAt(oldIndex);
               next.insert(newIndex, item);
-              final fullOrder = next + hiddenIds;
-              controller.state = controller.state.copyWithAsCustom(
-                columnOrder: fullOrder,
+              widget.controller.state = widget.controller.state.copyWithAsCustom(
+                columnOrder: next + hiddenIds,
                 visibleColumnIds: next,
               );
-              onStateChanged();
+              widget.onStateChanged();
+              setState(() {});
             },
             itemBuilder: (context, i) {
               final columnId = visibleOrdered[i];
               final column = _columnById(config, columnId);
               if (column == null) return const SizedBox.shrink(key: ValueKey('col_null'));
-              return Row(
-                key: ValueKey(columnId),
-                children: [
-                  ReorderableDragStartListener(index: i, child: Icon(Icons.drag_handle, size: 20, color: theme.colorScheme.onSurfaceVariant)),
-                  SizedBox(width: s.xxs),
-                  SizedBox(
-                    width: 28,
-                    child: IconButton(
-                      icon: const Icon(Icons.arrow_upward, size: 16),
-                      onPressed: i > 0
-                          ? () {
-                              final next = List<String>.from(visibleOrdered);
-                              next.insert(i - 1, next.removeAt(i));
-                              controller.state = controller.state.copyWithAsCustom(
-                                columnOrder: next + hiddenIds,
-                                visibleColumnIds: next,
-                              );
-                              onStateChanged();
-                            }
-                          : null,
-                      style: IconButton.styleFrom(minimumSize: const Size(28, 28), padding: EdgeInsets.zero),
+              final selected = _selectedColumnId == columnId;
+              return InkWell(
+                onTap: () => setState(() => _selectedColumnId = columnId),
+                borderRadius: BorderRadius.circular(radius.xs),
+                child: Container(
+                  key: ValueKey(columnId),
+                  margin: EdgeInsets.only(bottom: s.xs),
+                  padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
+                        : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(radius.xs),
+                    border: Border.all(
+                      color: selected ? theme.colorScheme.primary.withValues(alpha: 0.5) : theme.colorScheme.outline.withValues(alpha: 0.2),
                     ),
                   ),
-                  SizedBox(
-                    width: 28,
-                    child: IconButton(
-                      icon: const Icon(Icons.arrow_downward, size: 16),
-                      onPressed: i < visibleOrdered.length - 1
-                          ? () {
-                              final next = List<String>.from(visibleOrdered);
-                              next.insert(i + 1, next.removeAt(i));
-                              controller.state = controller.state.copyWithAsCustom(
-                                columnOrder: next + hiddenIds,
-                                visibleColumnIds: next,
-                              );
-                              onStateChanged();
-                            }
-                          : null,
-                      style: IconButton.styleFrom(minimumSize: const Size(28, 28), padding: EdgeInsets.zero),
-                    ),
-                  ),
-                  Checkbox(
-                    value: true,
-                    onChanged: column.hideable
-                        ? (_) {
+                  child: Row(
+                    children: [
+                      ReorderableDragStartListener(
+                        index: i,
+                        child: Icon(Icons.drag_handle, size: 20, color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                      SizedBox(width: s.sm),
+                      if (column.hideable)
+                        Checkbox(
+                          value: true,
+                          onChanged: (_) {
                             final next = visibleIds.where((id) => id != columnId).toSet();
                             if (next.isEmpty) return;
                             final visibleOrderedNew = order.where((id) => next.contains(id)).toList();
-                            controller.state = controller.state.copyWithAsCustom(
+                            widget.controller.state = widget.controller.state.copyWithAsCustom(
                               visibleColumnIds: visibleOrderedNew,
                               columnOrder: order,
                             );
-                            onStateChanged();
-                          }
-                        : null,
+                            widget.onStateChanged();
+                            if (_selectedColumnId == columnId) _selectedColumnId = null;
+                            setState(() {});
+                          },
+                        )
+                      else
+                        const SizedBox(width: 24),
+                      SizedBox(width: s.xxs),
+                      Expanded(child: Text(column.label, style: theme.textTheme.bodySmall)),
+                    ],
                   ),
-                  Expanded(child: Text(column.label, style: theme.textTheme.bodySmall)),
-                ],
+                ),
               );
             },
           ),
+        SizedBox(height: s.sm),
+        Wrap(
+          spacing: s.xs,
+          runSpacing: s.xs,
+          children: [
+            TextButton.icon(
+              onPressed: selectedInVisible && selectedIndex > 0 ? moveUp : null,
+              icon: const Icon(Icons.arrow_upward, size: 18),
+              label: const Text('Move up'),
+            ),
+            TextButton.icon(
+              onPressed: selectedInVisible && selectedIndex >= 0 && selectedIndex < visibleOrdered.length - 1 ? moveDown : null,
+              icon: const Icon(Icons.arrow_downward, size: 18),
+              label: const Text('Move down'),
+            ),
+            TextButton.icon(
+              onPressed: selectedInVisible ? hideSelected : null,
+              icon: const Icon(Icons.visibility_off, size: 18),
+              label: const Text('Hide'),
+            ),
+            TextButton.icon(
+              onPressed: selectedInHidden ? showSelected : null,
+              icon: const Icon(Icons.visibility, size: 18),
+              label: const Text('Show'),
+            ),
+            TextButton(
+              onPressed: () {
+                widget.controller.state = widget.controller.state.copyWithAsCustom(
+                  visibleColumnIds: List.from(defaultOrder),
+                  columnOrder: List.from(defaultOrder),
+                );
+                widget.onStateChanged();
+                setState(() => _selectedColumnId = null);
+              },
+              child: const Text('Restore default'),
+            ),
+          ],
+        ),
         if (hiddenIds.isNotEmpty) ...[
           SizedBox(height: s.sm),
-          Text('Hidden columns', style: theme.textTheme.labelMedium),
-          SizedBox(height: s.xxs),
-          ...hiddenIds.map((columnId) {
-            final column = _columnById(config, columnId);
-            if (column == null) return const SizedBox.shrink();
-            return Padding(
-              padding: EdgeInsets.only(bottom: s.xxs),
-              child: Row(
-                children: [
-                  Icon(Icons.visibility_off, size: 18, color: theme.colorScheme.onSurfaceVariant),
-                  SizedBox(width: s.xs),
-                  Expanded(child: Text(column.label, style: theme.textTheme.bodySmall)),
-                  TextButton(
-                    onPressed: () {
-                      final next = Set<String>.from(visibleIds)..add(columnId);
-                      final visibleOrderedNew = order.where((id) => next.contains(id)).toList();
-                      controller.state = controller.state.copyWithAsCustom(
-                        visibleColumnIds: visibleOrderedNew,
-                        columnOrder: order,
-                      );
-                      onStateChanged();
-                    },
-                    child: const Text('Show'),
+          Text('Hidden columns', style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          SizedBox(height: s.xs),
+          Container(
+            padding: EdgeInsets.all(s.sm),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(radius.sm),
+              border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.15)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: hiddenIds.map((columnId) {
+                final column = _columnById(config, columnId);
+                if (column == null) return const SizedBox.shrink();
+                final selected = _selectedColumnId == columnId;
+                return InkWell(
+                  onTap: () => setState(() => _selectedColumnId = columnId),
+                  borderRadius: BorderRadius.circular(radius.xs),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: s.xxs),
+                    child: Row(
+                      children: [
+                        Icon(Icons.visibility_off, size: 18, color: theme.colorScheme.onSurfaceVariant),
+                        SizedBox(width: s.xs),
+                        Expanded(
+                          child: Text(
+                            column.label,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: selected ? theme.colorScheme.primary : null,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            final next = Set<String>.from(visibleIds)..add(columnId);
+                            final visibleOrderedNew = order.where((id) => next.contains(id)).toList();
+                            widget.controller.state = widget.controller.state.copyWithAsCustom(
+                              visibleColumnIds: visibleOrderedNew,
+                              columnOrder: order,
+                            );
+                            widget.onStateChanged();
+                            if (_selectedColumnId == columnId) _selectedColumnId = null;
+                            setState(() {});
+                          },
+                          child: const Text('Show'),
+                        ),
+                      ],
+                    ),
                   ),
-                ],
-              ),
-            );
-          }),
+                );
+              }).toList(),
+            ),
+          ),
         ],
-        SizedBox(height: s.sm),
-        OutlinedButton(
-          onPressed: () {
-            controller.state = controller.state.copyWithAsCustom(
-              visibleColumnIds: List.from(defaultOrder),
-              columnOrder: List.from(defaultOrder),
-            );
-            onStateChanged();
-          },
-          child: const Text('Restore default columns'),
-        ),
       ],
     );
   }
 }
 
-class _SortSection<T> extends StatelessWidget {
+class _SortSection<T> extends StatefulWidget {
   const _SortSection({
     required this.controller,
     required this.onStateChanged,
@@ -1117,19 +1325,90 @@ class _SortSection<T> extends StatelessWidget {
   final VoidCallback onStateChanged;
 
   @override
+  State<_SortSection<T>> createState() => _SortSectionState<T>();
+}
+
+class _SortSectionState<T> extends State<_SortSection<T>> {
+  int? _selectedSortIndex;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final tokens = Theme.of(context).brightness == Brightness.dark ? UiV1Tokens.dark : UiV1Tokens.light;
     final s = tokens.spacing;
-    final config = controller.config;
-    final sorts = controller.state.sorts;
+    final config = widget.controller.config;
+    final sorts = widget.controller.state.sorts;
     final sortableColumns = config.columns.where((c) => c.sortable && c.valueGetter != null).toList();
+    final radius = tokens.radius;
+    final availableForSort = sortableColumns.where((c) => !sorts.any((x) => x.columnId == c.id)).toList();
+    final hasSelection = _selectedSortIndex != null && _selectedSortIndex! >= 0 && _selectedSortIndex! < sorts.length;
+
+    void addRule(String columnId) {
+      if (sorts.any((x) => x.columnId == columnId)) return;
+      final next = List<UnifiedSortDescriptor>.from(sorts)..add(UnifiedSortDescriptor(columnId: columnId, ascending: true));
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.controller.state = widget.controller.state.copyWithAsCustom(sorts: next);
+        widget.onStateChanged();
+        setState(() {});
+      });
+    }
+
+    void removeSelected() {
+      if (!hasSelection) return;
+      final next = sorts.where((x) => x.columnId != sorts[_selectedSortIndex!].columnId).toList();
+      widget.controller.state = widget.controller.state.copyWithAsCustom(sorts: next);
+      widget.onStateChanged();
+      setState(() => _selectedSortIndex = null);
+    }
+
+    void moveUp() {
+      if (!hasSelection || _selectedSortIndex! <= 0) return;
+      final next = List<UnifiedSortDescriptor>.from(sorts);
+      next.insert(_selectedSortIndex! - 1, next.removeAt(_selectedSortIndex!));
+      widget.controller.state = widget.controller.state.copyWithAsCustom(sorts: next);
+      widget.onStateChanged();
+      setState(() => _selectedSortIndex = _selectedSortIndex! - 1);
+    }
+
+    void moveDown() {
+      if (!hasSelection || _selectedSortIndex! >= sorts.length - 1) return;
+      final next = List<UnifiedSortDescriptor>.from(sorts);
+      next.insert(_selectedSortIndex! + 1, next.removeAt(_selectedSortIndex!));
+      widget.controller.state = widget.controller.state.copyWithAsCustom(sorts: next);
+      widget.onStateChanged();
+      setState(() => _selectedSortIndex = _selectedSortIndex! + 1);
+    }
+
+    void toggleDirection() {
+      if (!hasSelection) return;
+      final next = List<UnifiedSortDescriptor>.from(sorts);
+      final sort = next[_selectedSortIndex!];
+      next[_selectedSortIndex!] = UnifiedSortDescriptor(columnId: sort.columnId, ascending: !sort.ascending);
+      widget.controller.state = widget.controller.state.copyWithAsCustom(sorts: next);
+      widget.onStateChanged();
+      setState(() {});
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (sorts.isNotEmpty)
+        Text('Sort rules', style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+        SizedBox(height: s.xs),
+        if (sorts.isEmpty)
+          Container(
+            padding: EdgeInsets.symmetric(vertical: s.sm, horizontal: s.sm),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(radius.sm),
+              border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.15)),
+            ),
+            child: Text(
+              'No sort rules. Add a rule to sort the table.',
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+          )
+        else
           ReorderableListView.builder(
             shrinkWrap: true,
             buildDefaultDragHandles: false,
@@ -1139,124 +1418,230 @@ class _SortSection<T> extends StatelessWidget {
               final next = List<UnifiedSortDescriptor>.from(sorts);
               final item = next.removeAt(oldIndex);
               next.insert(newIndex, item);
-              controller.state = controller.state.copyWithAsCustom(sorts: next);
-              onStateChanged();
+              widget.controller.state = widget.controller.state.copyWithAsCustom(sorts: next);
+              widget.onStateChanged();
+              if (_selectedSortIndex != null) {
+                if (_selectedSortIndex == oldIndex) {
+                  _selectedSortIndex = newIndex;
+                } else if (_selectedSortIndex! > oldIndex && _selectedSortIndex! <= newIndex) {
+                  _selectedSortIndex = _selectedSortIndex! - 1;
+                } else if (_selectedSortIndex! < oldIndex && _selectedSortIndex! >= newIndex) {
+                  _selectedSortIndex = _selectedSortIndex! + 1;
+                }
+              }
+              setState(() {});
             },
             itemBuilder: (context, i) {
               final sort = sorts[i];
               final columnLabel = _columnLabel(config, sort.columnId);
-              return Row(
-                key: ValueKey('${sort.columnId}_$i'),
-                children: [
-                  ReorderableDragStartListener(
-                    index: i,
-                    child: Icon(Icons.drag_handle, size: 20, color: theme.colorScheme.onSurfaceVariant),
+              final selected = _selectedSortIndex == i;
+              return InkWell(
+                onTap: () => setState(() => _selectedSortIndex = i),
+                borderRadius: BorderRadius.circular(radius.sm),
+                child: Container(
+                  key: ValueKey('${sort.columnId}_$i'),
+                  margin: EdgeInsets.only(bottom: s.xs),
+                  padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
+                        : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(radius.sm),
+                    border: Border.all(
+                      color: selected ? theme.colorScheme.primary.withValues(alpha: 0.5) : theme.colorScheme.outline.withValues(alpha: 0.2),
+                    ),
                   ),
-                  SizedBox(width: s.xxs),
-                  IconButton(
-                    icon: Icon(sort.ascending ? Icons.arrow_upward : Icons.arrow_downward, size: 18),
-                    onPressed: () {
-                      final next = List<UnifiedSortDescriptor>.from(sorts);
-                      next[i] = UnifiedSortDescriptor(columnId: sort.columnId, ascending: !sort.ascending);
-                      controller.state = controller.state.copyWithAsCustom(sorts: next);
-                      onStateChanged();
-                    },
+                  child: Row(
+                    children: [
+                      ReorderableDragStartListener(
+                        index: i,
+                        child: Icon(Icons.drag_handle, size: 20, color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                      SizedBox(width: s.xs),
+                      Container(
+                        width: 24,
+                        height: 24,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(radius.xs),
+                        ),
+                        child: Text('${i + 1}', style: theme.textTheme.labelSmall),
+                      ),
+                      SizedBox(width: s.sm),
+                      Expanded(
+                        child: Text(columnLabel, style: theme.textTheme.bodySmall, overflow: TextOverflow.ellipsis),
+                      ),
+                      SizedBox(width: s.sm),
+                      SegmentedButton<bool>(
+                        segments: const [
+                          ButtonSegment(value: true, label: Text('Asc'), icon: Icon(Icons.arrow_upward, size: 14)),
+                          ButtonSegment(value: false, label: Text('Desc'), icon: Icon(Icons.arrow_downward, size: 14)),
+                        ],
+                        selected: {sort.ascending},
+                        onSelectionChanged: (v) {
+                          if (v.isEmpty) return;
+                          final next = List<UnifiedSortDescriptor>.from(sorts);
+                          next[i] = UnifiedSortDescriptor(columnId: sort.columnId, ascending: v.first);
+                          widget.controller.state = widget.controller.state.copyWithAsCustom(sorts: next);
+                          widget.onStateChanged();
+                          setState(() {});
+                        },
+                        style: ButtonStyle(
+                          visualDensity: VisualDensity.compact,
+                          padding: WidgetStateProperty.all(EdgeInsets.symmetric(horizontal: s.xs, vertical: 4)),
+                        ),
+                      ),
+                    ],
                   ),
-                  Expanded(
-                    child: Text('$columnLabel ${sort.ascending ? '↑' : '↓'}', style: theme.textTheme.bodySmall),
-                  ),
-                  IconButton(
-                    icon: const Icon(UiIcons.close, size: 18),
-                    onPressed: () {
-                      final next = sorts.where((x) => x.columnId != sort.columnId).toList();
-                      controller.state = controller.state.copyWithAsCustom(sorts: next);
-                      onStateChanged();
-                    },
-                    style: IconButton.styleFrom(minimumSize: const Size(32, 32), padding: EdgeInsets.zero),
-                  ),
-                ],
+                ),
               );
             },
           ),
-        if (sorts.isNotEmpty) SizedBox(height: s.sm),
-        if (sortableColumns.isNotEmpty) ...[
-          Text('Add sort rule', style: theme.textTheme.labelMedium),
-          SizedBox(height: s.xxs),
-          DropdownButtonFormField<String>(
-            key: const ValueKey('add_sort'),
-            decoration: InputDecoration(
-              isDense: true,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(tokens.radius.sm)),
-              contentPadding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
+        SizedBox(height: s.sm),
+        Wrap(
+          spacing: s.xs,
+          runSpacing: s.xs,
+          children: [
+            if (sortableColumns.isNotEmpty && availableForSort.isNotEmpty)
+              PopupMenuButton<String>(
+                offset: const Offset(0, 40),
+                itemBuilder: (ctx) => availableForSort.map((c) => PopupMenuItem(value: c.id, child: Text(c.label))).toList(),
+                onSelected: addRule,
+                child: TextButton.icon(
+                  onPressed: () {},
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add'),
+                ),
+              ),
+            TextButton.icon(
+              onPressed: hasSelection ? removeSelected : null,
+              icon: const Icon(UiIcons.close, size: 18),
+              label: const Text('Remove'),
             ),
-            initialValue: null,
-            hint: const Text('Select column'),
-            items: sortableColumns
-                .where((c) => !sorts.any((s) => s.columnId == c.id))
-                .map((c) => DropdownMenuItem(value: c.id, child: Text(c.label)))
-                .toList(),
-            onChanged: (columnId) {
-              if (columnId == null) return;
-              final next = List<UnifiedSortDescriptor>.from(sorts);
-              next.add(UnifiedSortDescriptor(columnId: columnId, ascending: true));
-              controller.state = controller.state.copyWithAsCustom(sorts: next);
-              onStateChanged();
-            },
+            TextButton.icon(
+              onPressed: hasSelection && _selectedSortIndex! > 0 ? moveUp : null,
+              icon: const Icon(Icons.arrow_upward, size: 18),
+              label: const Text('Up'),
+            ),
+            TextButton.icon(
+              onPressed: hasSelection && _selectedSortIndex! < sorts.length - 1 ? moveDown : null,
+              icon: const Icon(Icons.arrow_downward, size: 18),
+              label: const Text('Down'),
+            ),
+            TextButton.icon(
+              onPressed: hasSelection ? toggleDirection : null,
+              icon: Icon(sorts.isNotEmpty && hasSelection && sorts[_selectedSortIndex!].ascending ? Icons.arrow_downward : Icons.arrow_upward, size: 18),
+              label: const Text('Toggle'),
+            ),
+          ],
+        ),
+        if (sorts.isNotEmpty && availableForSort.isEmpty)
+          Padding(
+            padding: EdgeInsets.only(top: s.xs),
+            child: Text(
+              'All columns are in sort order',
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
           ),
-        ],
       ],
     );
   }
 }
 
-class _StatisticsSection<T> extends StatelessWidget {
+class _StatisticsSection<T> extends StatefulWidget {
   const _StatisticsSection({
     required this.controller,
-    required this.visibleRows,
     required this.onStateChanged,
   });
 
   final UnifiedTableController<T> controller;
-  final List<T> visibleRows;
   final VoidCallback onStateChanged;
+
+  @override
+  State<_StatisticsSection<T>> createState() => _StatisticsSectionState<T>();
+}
+
+class _StatisticsSectionState<T> extends State<_StatisticsSection<T>> {
+  String? _selectedMetricId;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final tokens = Theme.of(context).brightness == Brightness.dark ? UiV1Tokens.dark : UiV1Tokens.light;
     final s = tokens.spacing;
-    final config = controller.config;
-    final statsVisible = controller.state.statsVisible;
-    final selectedIds = controller.state.selectedMetricIds;
+    final config = widget.controller.config;
+    final statsVisible = widget.controller.state.statsVisible;
+    final selectedIds = widget.controller.state.selectedMetricIds;
     final metrics = config.availableMetrics;
-    final rawValues = controller.getStatsValues(visibleRows);
     final effectiveSelected = selectedIds.isEmpty ? metrics.map((x) => x.id).toList() : selectedIds;
     final selectedOrdered = effectiveSelected.where((id) => metrics.any((m) => m.id == id)).toList();
     final availableIds = metrics.map((m) => m.id).where((id) => !selectedOrdered.contains(id)).toList();
+    final radius = tokens.radius;
+    final selectedIndex = _selectedMetricId != null ? selectedOrdered.indexOf(_selectedMetricId!) : -1;
+    final hasSelection = selectedIndex >= 0;
+
+    void moveUp() {
+      if (!hasSelection || selectedIndex <= 0) return;
+      final next = List<String>.from(selectedOrdered);
+      next.insert(selectedIndex - 1, next.removeAt(selectedIndex));
+      widget.controller.state = widget.controller.state.copyWithAsCustom(selectedMetricIds: next);
+      widget.onStateChanged();
+      setState(() {});
+    }
+
+    void moveDown() {
+      if (!hasSelection || selectedIndex >= selectedOrdered.length - 1) return;
+      final next = List<String>.from(selectedOrdered);
+      next.insert(selectedIndex + 1, next.removeAt(selectedIndex));
+      widget.controller.state = widget.controller.state.copyWithAsCustom(selectedMetricIds: next);
+      widget.onStateChanged();
+      setState(() {});
+    }
+
+    void removeSelected() {
+      if (!hasSelection || _selectedMetricId == null) return;
+      var next = List<String>.from(selectedOrdered)..remove(_selectedMetricId);
+      if (next.isEmpty && metrics.isNotEmpty) next = [metrics.first.id];
+      widget.controller.state = widget.controller.state.copyWithAsCustom(selectedMetricIds: next);
+      widget.onStateChanged();
+      setState(() => _selectedMetricId = null);
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          children: [
-            Text('Show statistics', style: theme.textTheme.bodyMedium),
-            const Spacer(),
-            Switch(
-              value: statsVisible,
-              onChanged: (v) {
-                controller.state = controller.state.copyWithAsCustom(statsVisible: v);
-                onStateChanged();
-              },
-            ),
-          ],
+        Text('Statistics', style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+        SizedBox(height: s.xs),
+        Container(
+          padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(radius.sm),
+            border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.15)),
+          ),
+          child: Row(
+            children: [
+              Text('Show statistics', style: theme.textTheme.bodyMedium),
+              const Spacer(),
+              Switch(
+                value: statsVisible,
+                onChanged: (v) {
+                  widget.controller.state = widget.controller.state.copyWithAsCustom(statsVisible: v);
+                  widget.onStateChanged();
+                  setState(() {});
+                },
+              ),
+            ],
+          ),
         ),
         SizedBox(height: s.sm),
-        Text('Selected metrics', style: theme.textTheme.labelMedium),
-        SizedBox(height: s.xxs),
+        Text('Selected metrics', style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+        SizedBox(height: s.xs),
         if (selectedOrdered.isEmpty)
           Padding(
-            padding: EdgeInsets.symmetric(vertical: s.xs),
+            padding: EdgeInsets.symmetric(vertical: s.sm),
             child: Text('No metrics selected', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
           )
         else
@@ -1269,8 +1654,13 @@ class _StatisticsSection<T> extends StatelessWidget {
               final next = List<String>.from(selectedOrdered);
               final item = next.removeAt(oldIndex);
               next.insert(newIndex, item);
-              controller.state = controller.state.copyWithAsCustom(selectedMetricIds: next);
-              onStateChanged();
+              widget.controller.state = widget.controller.state.copyWithAsCustom(selectedMetricIds: next);
+              widget.onStateChanged();
+              if (_selectedMetricId != null) {
+                final id = _selectedMetricId!;
+                if (selectedOrdered[oldIndex] == id) _selectedMetricId = next[newIndex];
+              }
+              setState(() {});
             },
             itemBuilder: (context, i) {
               final metricId = selectedOrdered[i];
@@ -1280,61 +1670,101 @@ class _StatisticsSection<T> extends StatelessWidget {
               }
               if (m == null) return const SizedBox.shrink(key: ValueKey('metric_null'));
               final metric = m;
-              final valueStr = controller.formatMetricValue(metric.id, rawValues[metric.id] ?? 0);
-              return Row(
-                key: ValueKey(metric.id),
-                children: [
-                  ReorderableDragStartListener(
-                    index: i,
-                    child: Icon(Icons.drag_handle, size: 20, color: theme.colorScheme.onSurfaceVariant),
+              final selected = _selectedMetricId == metric.id;
+              return InkWell(
+                onTap: () => setState(() => _selectedMetricId = metric.id),
+                borderRadius: BorderRadius.circular(radius.xs),
+                child: Container(
+                  key: ValueKey(metric.id),
+                  margin: EdgeInsets.only(bottom: s.xs),
+                  padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
+                        : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(radius.xs),
+                    border: Border.all(
+                      color: selected ? theme.colorScheme.primary.withValues(alpha: 0.5) : theme.colorScheme.outline.withValues(alpha: 0.2),
+                    ),
                   ),
-                  SizedBox(width: s.xs),
-                  Expanded(child: Text(metric.label, style: theme.textTheme.bodySmall)),
-                  Text(valueStr, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-                  IconButton(
-                    icon: const Icon(UiIcons.close, size: 18),
-                    onPressed: () {
-                      var next = List<String>.from(selectedOrdered)..remove(metric.id);
-                      if (next.isEmpty) next = [metrics.first.id];
-                      controller.state = controller.state.copyWithAsCustom(selectedMetricIds: next);
-                      onStateChanged();
-                    },
-                    style: IconButton.styleFrom(minimumSize: const Size(32, 32), padding: EdgeInsets.zero),
+                  child: Row(
+                    children: [
+                      ReorderableDragStartListener(
+                        index: i,
+                        child: Icon(Icons.drag_handle, size: 20, color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                      SizedBox(width: s.xs),
+                      Expanded(child: Text(metric.label, style: theme.textTheme.bodySmall)),
+                    ],
                   ),
-                ],
+                ),
               );
             },
           ),
+        SizedBox(height: s.sm),
+        Wrap(
+          spacing: s.xs,
+          runSpacing: s.xs,
+          children: [
+            TextButton.icon(
+              onPressed: hasSelection && selectedIndex > 0 ? moveUp : null,
+              icon: const Icon(Icons.arrow_upward, size: 18),
+              label: const Text('Move up'),
+            ),
+            TextButton.icon(
+              onPressed: hasSelection && selectedIndex >= 0 && selectedIndex < selectedOrdered.length - 1 ? moveDown : null,
+              icon: const Icon(Icons.arrow_downward, size: 18),
+              label: const Text('Move down'),
+            ),
+            TextButton.icon(
+              onPressed: hasSelection ? removeSelected : null,
+              icon: const Icon(UiIcons.close, size: 18),
+              label: const Text('Remove'),
+            ),
+          ],
+        ),
         if (availableIds.isNotEmpty) ...[
           SizedBox(height: s.sm),
-          Text('Available metrics', style: theme.textTheme.labelMedium),
-          SizedBox(height: s.xxs),
-          ...availableIds.map((metricId) {
-            UnifiedStatsMetricDefinition<T>? m;
-            for (final x in metrics) {
-              if (x.id == metricId) { m = x; break; }
-            }
-            if (m == null) return const SizedBox.shrink();
-            final metric = m;
-            return Padding(
-              padding: EdgeInsets.only(bottom: s.xxs),
-              child: Row(
-                children: [
-                  Icon(Icons.add_circle_outline, size: 18, color: theme.colorScheme.primary),
-                  SizedBox(width: s.xs),
-                  Expanded(child: Text(metric.label, style: theme.textTheme.bodySmall)),
-                  TextButton(
-                    onPressed: () {
-                      final next = List<String>.from(selectedOrdered)..add(metric.id);
-                      controller.state = controller.state.copyWithAsCustom(selectedMetricIds: next);
-                      onStateChanged();
-                    },
-                    child: const Text('Add'),
+          Text('Available metrics', style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          SizedBox(height: s.xs),
+          Container(
+            padding: EdgeInsets.all(s.sm),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(radius.sm),
+              border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.15)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: availableIds.map((metricId) {
+                UnifiedStatsMetricDefinition<T>? m;
+                for (final x in metrics) {
+                  if (x.id == metricId) { m = x; break; }
+                }
+                if (m == null) return const SizedBox.shrink();
+                final metric = m;
+                return Padding(
+                  padding: EdgeInsets.only(bottom: s.xxs),
+                  child: Row(
+                    children: [
+                      Icon(Icons.add_circle_outline, size: 18, color: theme.colorScheme.onSurfaceVariant),
+                      SizedBox(width: s.xs),
+                      Expanded(child: Text(metric.label, style: theme.textTheme.bodySmall)),
+                      TextButton(
+                        onPressed: () {
+                          final next = List<String>.from(selectedOrdered)..add(metric.id);
+                          widget.controller.state = widget.controller.state.copyWithAsCustom(selectedMetricIds: next);
+                          widget.onStateChanged();
+                          setState(() {});
+                        },
+                        child: const Text('Add'),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            );
-          }),
+                );
+              }).toList(),
+            ),
+          ),
         ],
       ],
     );
