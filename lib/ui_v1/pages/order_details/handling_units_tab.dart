@@ -9,6 +9,7 @@ import '../../demo_data/demo_data.dart';
 import '../../icons/ui_icons.dart';
 import '../../theme/density.dart';
 import '../../theme/tokens.dart';
+import '../products/sku_link_text.dart';
 
 /// HU status: Open / Packed / Shipped
 const List<String> kHuStatuses = ['Open', 'Packed', 'Shipped'];
@@ -260,6 +261,11 @@ void _showHuDetailDrawer(BuildContext context, DemoHandlingUnit hu) {
                     child: _HuDetailContent(hu: hu, density: density, s: s, theme: theme),
                   ),
                 ),
+                SizedBox(height: s.md),
+                Padding(
+                  padding: EdgeInsets.fromLTRB(s.md, 0, s.md, s.md),
+                  child: _HuDetailActions(hu: hu, density: density),
+                ),
               ],
             ),
           ),
@@ -304,6 +310,11 @@ void _showHuDetailBottomSheet(BuildContext context, DemoHandlingUnit hu) {
               children: [_HuDetailContent(hu: hu, density: density, s: s, theme: theme)],
             ),
           ),
+          SizedBox(height: s.md),
+          Padding(
+            padding: EdgeInsets.fromLTRB(s.md, 0, s.md, s.md),
+            child: _HuDetailActions(hu: hu, density: density),
+          ),
         ],
       ),
     ),
@@ -318,10 +329,10 @@ class _HuDetailContent extends StatelessWidget {
   final UiV1SpacingTokens s;
   final ThemeData theme;
 
+  static const double _contentsRowHeight = 32;
+
   @override
   Widget build(BuildContext context) {
-    final isShipped = hu.status == 'Shipped';
-    final isOpen = hu.status == 'Open';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -346,54 +357,79 @@ class _HuDetailContent extends StatelessWidget {
           ),
           child: Column(
             children: [
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xxs),
-                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                child: Row(
-                  children: [
-                    Expanded(flex: 2, child: Text('SKU', style: theme.textTheme.labelSmall)),
-                    Expanded(flex: 2, child: Text('Name', style: theme.textTheme.labelSmall)),
-                    Expanded(flex: 1, child: Text('Packed', style: theme.textTheme.labelSmall)),
-                  ],
+              SizedBox(
+                height: _contentsRowHeight,
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: s.sm),
+                  alignment: Alignment.centerLeft,
+                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                  child: Row(
+                    children: [
+                      Expanded(flex: 2, child: Text('SKU', style: theme.textTheme.labelSmall)),
+                      Expanded(flex: 2, child: Text('Name', style: theme.textTheme.labelSmall)),
+                      Expanded(flex: 1, child: Text('Packed', style: theme.textTheme.labelSmall)),
+                    ],
+                  ),
                 ),
               ),
-              ...hu.contents.map((c) => Padding(
-                padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xxs),
-                child: Row(
-                  children: [
-                    Expanded(flex: 2, child: Text(c.sku, overflow: TextOverflow.ellipsis, maxLines: 1, style: theme.textTheme.bodySmall)),
-                    Expanded(flex: 2, child: Text(c.name, overflow: TextOverflow.ellipsis, maxLines: 1, style: theme.textTheme.bodySmall)),
-                    Expanded(flex: 1, child: Text('${c.packedQty}', style: theme.textTheme.bodySmall)),
-                  ],
+              ...hu.contents.map((c) => SizedBox(
+                height: _contentsRowHeight,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: s.sm),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: SkuLinkText(sku: c.sku, style: theme.textTheme.bodySmall),
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: SkuLinkText(sku: c.sku, label: c.name, style: theme.textTheme.bodySmall),
+                      ),
+                      Expanded(flex: 1, child: Align(alignment: Alignment.centerLeft, child: Text('${c.packedQty}', style: theme.textTheme.bodySmall))),
+                    ],
+                  ),
                 ),
               )),
             ],
           ),
         ),
-        SizedBox(height: s.lg),
-        Wrap(
-          spacing: s.xs,
-          runSpacing: s.xs,
-          children: [
-            _HuActionButton(
-              label: 'Seal HU',
-              onPressed: isShipped ? null : () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Seal HU (placeholder)'))),
-              disabledReason: isShipped ? (kEHuShipped, 'HU уже отгружен.') : (isOpen ? (kEHuNotPacked, 'Сначала упакуйте HU.') : null),
-              density: density,
-            ),
-            _HuActionButton(
-              label: 'Print label',
-              onPressed: isOpen ? null : () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Print label (placeholder)'))),
-              disabledReason: isOpen ? (kEHuNotPacked, 'Нет SSCC для печати.') : null,
-              density: density,
-            ),
-            _HuActionButton(
-              label: 'Unpack',
-              onPressed: isShipped ? null : (isOpen ? null : () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Unpack (placeholder)')))),
-              disabledReason: isShipped ? (kEHuShipped, 'HU уже отгружен.') : (isOpen ? (kEHuNothingToUnpack, 'Нет содержимого для распаковки.') : null),
-              density: density,
-            ),
-          ],
+      ],
+    );
+  }
+}
+
+class _HuDetailActions extends StatelessWidget {
+  const _HuDetailActions({required this.hu, required this.density});
+  final DemoHandlingUnit hu;
+  final UiV1DensityTokens density;
+
+  @override
+  Widget build(BuildContext context) {
+    final isShipped = hu.status == 'Shipped';
+    final isOpen = hu.status == 'Open';
+    final s = UiV1SpacingTokens.standard;
+    return Wrap(
+      spacing: s.xs,
+      runSpacing: s.xs,
+      children: [
+        _HuActionButton(
+          label: 'Seal HU',
+          onPressed: isShipped ? null : () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Seal HU (placeholder)'))),
+          disabledReason: isShipped ? (kEHuShipped, 'HU уже отгружен.') : (isOpen ? (kEHuNotPacked, 'Сначала упакуйте HU.') : null),
+          density: density,
+        ),
+        _HuActionButton(
+          label: 'Print label',
+          onPressed: isOpen ? null : () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Print label (placeholder)'))),
+          disabledReason: isOpen ? (kEHuNotPacked, 'Нет SSCC для печати.') : null,
+          density: density,
+        ),
+        _HuActionButton(
+          label: 'Unpack',
+          onPressed: isShipped ? null : (isOpen ? null : () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Unpack (placeholder)')))),
+          disabledReason: isShipped ? (kEHuShipped, 'HU уже отгружен.') : (isOpen ? (kEHuNothingToUnpack, 'Нет содержимого для распаковки.') : null),
+          density: density,
         ),
       ],
     );

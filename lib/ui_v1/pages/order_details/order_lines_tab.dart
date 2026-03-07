@@ -8,6 +8,7 @@ import '../../components/data_grid/index.dart';
 import '../../demo_data/demo_data.dart';
 import '../../theme/density.dart';
 import '../../theme/tokens.dart';
+import '../products/sku_link_text.dart';
 
 /// Reason codes for shortage (demo).
 const List<String> kShortageReasonCodes = ['DAMAGED', 'LOST', 'EXPIRED', 'NOT_FOUND'];
@@ -68,13 +69,13 @@ class _OrderLinesTabState extends State<OrderLinesTab> {
         id: 'sku',
         label: 'SKU',
         flex: 2,
-        cellBuilder: (r) => Text(r.sku, overflow: TextOverflow.ellipsis, maxLines: 1),
+        cellBuilder: (r) => SkuLinkText(sku: r.sku),
       ),
       UiV1DataGridColumn<DemoOrderLine>(
         id: 'name',
         label: 'Name',
         flex: 2,
-        cellBuilder: (r) => Text(r.name, overflow: TextOverflow.ellipsis, maxLines: 1),
+        cellBuilder: (r) => SkuLinkText(sku: r.sku, label: r.name),
       ),
       UiV1DataGridColumn<DemoOrderLine>(
         id: 'ordered',
@@ -341,3 +342,4 @@ class _SetReasonCodeDialogState extends State<_SetReasonCodeDialog> {
     );
   }
 }
+

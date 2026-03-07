@@ -5,11 +5,11 @@ import 'package:flutter/material.dart';
 import '../../app_shell/app_shell.dart';
 import '../../utils/nav_item.dart';
 import '../orders/orders_worklist_page.dart';
-import '../packing/packing_page.dart';
-import '../picking/picking_page.dart';
+import '../packing/packing_worklist_page.dart';
+import '../picking/picking_worklist_page.dart';
 import '../playground/orders_list_state.dart';
 import '../playground/playground_page.dart';
-import '../products/products_page.dart';
+import '../products/products_worklist_page.dart';
 import '../settings/settings_page.dart';
 
 /// Main page when kUseUiV1: shell + Orders worklist (or Playground / placeholders).
@@ -47,11 +47,11 @@ class _UiV1MainPageState extends State<UiV1MainPage> {
       case UiV1NavItem.settings:
         return const SettingsPage();
       case UiV1NavItem.picking:
-        return const PickingPage();
+        return const PickingWorklistPage();
       case UiV1NavItem.packing:
-        return const PackingPage();
+        return const PackingWorklistPage();
       case UiV1NavItem.products:
-        return const ProductsPage();
+        return const ProductsWorklistPage();
     }
   }
 

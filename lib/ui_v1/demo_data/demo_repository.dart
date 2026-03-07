@@ -7,6 +7,8 @@ import 'demo_order.dart';
 import 'demo_order_line.dart';
 import 'demo_orders_filters.dart';
 import 'demo_pick_task.dart';
+import 'demo_packing_task.dart';
+import 'demo_product.dart';
 
 /// Bundle returned by [DemoRepository.getOrderDetails].
 class DemoOrderDetailsBundle {
@@ -34,6 +36,8 @@ class DemoRepository {
     _hus = {};
     _events = {};
     _tasks = {};
+    _products = {};
+    _productIdBySku = {};
   }
 
   late Map<String, DemoOrder> _orders;
@@ -41,9 +45,12 @@ class DemoRepository {
   late Map<String, List<DemoHandlingUnit>> _hus;
   late Map<String, List<DemoEvent>> _events;
   late Map<String, List<DemoPickTask>> _tasks;
+  late Map<String, DemoProduct> _products;
+  late Map<String, String> _productIdBySku;
 
   /// Populate with initial demo data.
   void seed() {
+    _seedProducts();
     final statuses = [
       'Draft', 'Released', 'Allocating', 'Picking', 'Packing', 'Packed',
       'Shipped', 'Closed', 'On Hold', 'Shortage', 'Cancelled', 'Allocated',
@@ -70,6 +77,158 @@ class DemoRepository {
         _tasks[id] = [];
       }
     }
+  }
+
+  void _seedProducts() {
+    final list = [
+      DemoProduct(
+        productId: 'prd-001',
+        sku: 'SKU-001',
+        productName: 'Product A',
+        gtin14: '05012345678901',
+        brand: 'Brand Alpha',
+        category: 'Electronics',
+        status: 'Active',
+        baseUom: 'EA',
+        sellingUom: 'EA',
+        orderingUom: 'PCS',
+        barcodePrimary: '5012345678901',
+        barcodeSecondary: null,
+        requiresLotTracking: false,
+        requiresSerialTracking: false,
+        requiresExpiryTracking: false,
+        shelfLifeDays: null,
+        bestBeforeDays: null,
+        countryOfOrigin: 'DE',
+        netWeight: 0.5,
+        grossWeight: 0.6,
+        length: 10,
+        width: 8,
+        height: 5,
+        unitsPerCase: 12,
+        casesPerLayer: 5,
+        layersPerPallet: 4,
+        storageCondition: 'Ambient',
+        hazardousFlag: false,
+        notes: null,
+      ),
+      DemoProduct(
+        productId: 'prd-002',
+        sku: 'SKU-002',
+        productName: 'Product B',
+        gtin14: '05012345678902',
+        brand: 'Brand Beta',
+        category: 'Consumables',
+        status: 'Active',
+        baseUom: 'EA',
+        sellingUom: 'EA',
+        orderingUom: 'EA',
+        barcodePrimary: '5012345678902',
+        barcodeSecondary: ['5012345678902-2'],
+        requiresLotTracking: true,
+        requiresSerialTracking: false,
+        requiresExpiryTracking: true,
+        shelfLifeDays: 365,
+        bestBeforeDays: 180,
+        countryOfOrigin: 'PL',
+        netWeight: 1.2,
+        grossWeight: 1.3,
+        length: 15,
+        width: 10,
+        height: 6,
+        unitsPerCase: 6,
+        storageCondition: 'Chilled',
+        hazardousFlag: false,
+        notes: null,
+      ),
+      DemoProduct(
+        productId: 'prd-003',
+        sku: 'SKU-003',
+        productName: 'Product C',
+        gtin14: '05012345678903',
+        brand: 'Brand Alpha',
+        category: 'Electronics',
+        status: 'Active',
+        baseUom: 'PCS',
+        sellingUom: 'PCS',
+        orderingUom: 'PCS',
+        barcodePrimary: '5012345678903',
+        barcodeSecondary: null,
+        requiresLotTracking: true,
+        requiresSerialTracking: true,
+        requiresExpiryTracking: false,
+        shelfLifeDays: null,
+        bestBeforeDays: null,
+        netWeight: 2.0,
+        grossWeight: 2.2,
+        length: 20,
+        width: 12,
+        height: 8,
+        unitsPerCase: 1,
+        storageCondition: 'Ambient',
+        hazardousFlag: false,
+        notes: null,
+      ),
+      DemoProduct(
+        productId: 'prd-004',
+        sku: 'SKU-004',
+        productName: 'Product D',
+        gtin14: '05012345678904',
+        brand: 'Brand Gamma',
+        category: 'Food',
+        status: 'Active',
+        baseUom: 'EA',
+        sellingUom: 'EA',
+        orderingUom: 'EA',
+        barcodePrimary: '5012345678904',
+        barcodeSecondary: null,
+        requiresLotTracking: true,
+        requiresSerialTracking: false,
+        requiresExpiryTracking: true,
+        shelfLifeDays: 90,
+        bestBeforeDays: 30,
+        countryOfOrigin: 'FR',
+        netWeight: 0.3,
+        length: 12,
+        width: 10,
+        height: 4,
+        unitsPerCase: 24,
+        casesPerLayer: 8,
+        layersPerPallet: 6,
+        storageCondition: 'Frozen',
+        hazardousFlag: false,
+        notes: null,
+      ),
+      DemoProduct(
+        productId: 'prd-005',
+        sku: 'SKU-005',
+        productName: 'Product E',
+        gtin14: '05012345678905',
+        brand: 'Brand Beta',
+        category: 'Consumables',
+        status: 'Inactive',
+        baseUom: 'EA',
+        sellingUom: 'EA',
+        orderingUom: 'EA',
+        barcodePrimary: '5012345678905',
+        barcodeSecondary: null,
+        requiresLotTracking: false,
+        requiresSerialTracking: false,
+        requiresExpiryTracking: true,
+        shelfLifeDays: 60,
+        bestBeforeDays: 14,
+        netWeight: 0.4,
+        length: 8,
+        width: 6,
+        height: 3,
+        unitsPerCase: 12,
+        storageCondition: 'Chilled',
+        hazardousFlag: false,
+        notes: 'Discontinued line',
+      ),
+    ];
+    _products = { for (final p in list) p.productId : p };
+    _productIdBySku = { for (final p in list) p.sku : p.productId };
   }
 
   static List<DemoOrderLine> _seedLines() {
@@ -191,6 +350,133 @@ class DemoRepository {
     if (exception.contains(c)) return DemoEventCategory.exception;
     if (system.contains(c)) return DemoEventCategory.system;
     return DemoEventCategory.system;
+  }
+
+  /// All pick tasks from all orders, each with [orderNo] set (for Picking Worklist).
+  List<DemoPickTask> getAllPickTasks() {
+    final result = <DemoPickTask>[];
+    for (final entry in _tasks.entries) {
+      final order = _orders[entry.key];
+      if (order == null) continue;
+      final orderNo = order.orderNo;
+      for (final t in entry.value) {
+        result.add(DemoPickTask(
+          id: t.id,
+          taskNo: t.taskNo,
+          status: t.status,
+          zone: t.zone,
+          location: t.location,
+          sku: t.sku,
+          qty: t.qty,
+          pickedQty: t.pickedQty,
+          orderNo: orderNo,
+        ));
+      }
+    }
+    return result;
+  }
+
+  /// All packing tasks from all orders (one row per order line), for Packing Worklist.
+  List<DemoPackingTask> getAllPackingTasks() {
+    final result = <DemoPackingTask>[];
+    for (final entry in _orders.entries) {
+      final order = entry.value;
+      final orderId = entry.key;
+      final orderNo = order.orderNo;
+      final lines = _lines[orderId] ?? [];
+      final warehouse = order.warehouse;
+      for (var i = 0; i < lines.length; i++) {
+        final line = lines[i];
+        final status = _packingStatusFromLine(line);
+        result.add(DemoPackingTask(
+          id: '$orderId-${line.id}',
+          taskNo: 'PK-${i + 1}',
+          orderNo: orderNo,
+          status: status,
+          sku: line.sku,
+          pickedQty: line.pickedQty,
+          packedQty: line.packedQty,
+          shortQty: line.shortQty,
+          warehouse: warehouse,
+        ));
+      }
+    }
+    return result;
+  }
+
+  static String _packingStatusFromLine(DemoOrderLine line) {
+    if (line.shortQty > 0) return 'Exception';
+    if (line.pickedQty == 0) return line.packedQty > 0 ? 'In Progress' : 'Open';
+    if (line.packedQty >= line.pickedQty) return 'Packed';
+    if (line.packedQty > 0) return 'In Progress';
+    return 'Open';
+  }
+
+  /// Products list. [statusFilter] empty = all; [lotTracked]/[expiryTracked] null = any.
+  List<DemoProduct> getProducts({
+    String search = '',
+    Set<String> statusFilter = const {},
+    bool? lotTracked,
+    bool? expiryTracked,
+  }) {
+    var list = _products.values.toList();
+    final query = search.trim().toLowerCase();
+    if (query.isNotEmpty) {
+      list = list.where((p) =>
+        p.sku.toLowerCase().contains(query) ||
+        p.productName.toLowerCase().contains(query) ||
+        p.gtin14.contains(query) ||
+        p.brand.toLowerCase().contains(query),
+      ).toList();
+    }
+    if (statusFilter.isNotEmpty) {
+      list = list.where((p) => statusFilter.contains(p.status)).toList();
+    }
+    if (lotTracked == true) {
+      list = list.where((p) => p.requiresLotTracking).toList();
+    }
+    if (expiryTracked == true) {
+      list = list.where((p) => p.requiresExpiryTracking).toList();
+    }
+    return list;
+  }
+
+  DemoProduct? getProductById(String productId) => _products[productId];
+
+  DemoProduct? getProductBySku(String sku) {
+    final id = _productIdBySku[sku];
+    return id != null ? _products[id] : null;
+  }
+
+  /// Orders that have at least one line with this product (by sku or productId).
+  List<DemoOrder> getOrdersForProduct(String productIdOrSku) {
+    final product = _products[productIdOrSku];
+    final skuToUse = product?.sku ?? (_productIdBySku[productIdOrSku] != null
+        ? _products[_productIdBySku[productIdOrSku]]!.sku
+        : productIdOrSku);
+    final orderIds = <String>{};
+    for (final entry in _lines.entries) {
+      if (entry.value.any((l) => l.sku == skuToUse)) orderIds.add(entry.key);
+    }
+    return orderIds.map((id) => _orders[id]!).whereType<DemoOrder>().toList();
+  }
+
+  /// HUs that contain this product (by sku or productId). Returns orderNo + HU for display.
+  List<({String orderNo, DemoHandlingUnit hu})> getHuForProduct(String productIdOrSku) {
+    final product = _products[productIdOrSku];
+    final idBySku = _productIdBySku[productIdOrSku];
+    final skuToUse = product?.sku ?? (idBySku != null ? _products[idBySku]!.sku : productIdOrSku);
+    final result = <({String orderNo, DemoHandlingUnit hu})>[];
+    for (final entry in _hus.entries) {
+      final order = _orders[entry.key];
+      if (order == null) continue;
+      for (final hu in entry.value) {
+        if (hu.contents.any((c) => c.sku == skuToUse)) {
+          result.add((orderNo: order.orderNo, hu: hu));
+        }
+      }
+    }
+    return result;
   }
 
   List<DemoOrder> getOrders(DemoOrdersFilters filters) {

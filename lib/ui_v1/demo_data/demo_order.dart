@@ -9,6 +9,9 @@ class DemoOrder {
     required this.warehouse,
     required this.createdAt,
     this.baseStatus,
+    this.shipFromGln,
+    this.shipToGln,
+    this.warehouseGln,
   }) : isOnHold = status.toLowerCase() == 'on hold';
 
   final String id;
@@ -20,4 +23,10 @@ class DemoOrder {
   final String createdAt;
   /// When status is On Hold, chip shows this (e.g. 'Allocated').
   final String? baseStatus;
+  /// GS1: ship-from location GLN (optional).
+  final String? shipFromGln;
+  /// GS1: ship-to party GLN (optional).
+  final String? shipToGln;
+  /// GS1: warehouse GLN (optional).
+  final String? warehouseGln;
 }

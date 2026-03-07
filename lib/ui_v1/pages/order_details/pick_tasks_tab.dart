@@ -9,9 +9,15 @@ import '../../demo_data/demo_data.dart';
 import '../../icons/ui_icons.dart';
 import '../../theme/density.dart';
 import '../../theme/tokens.dart';
+import '../products/sku_link_text.dart';
 
 /// Pick task status for list and filters. Display as chip.
-const List<String> kPickTaskStatuses = ['Open', 'In Progress', 'Done', 'Exception'];
+const List<String> kPickTaskStatuses = [
+  'Open',
+  'In Progress',
+  'Done',
+  'Exception',
+];
 
 /// Filter segment: All | Open | In Progress | Done | Exceptions
 enum PickTaskFilter { all, open, inProgress, done, exceptions }
@@ -36,7 +42,8 @@ class PickTasksTab extends StatefulWidget {
   State<PickTasksTab> createState() => _PickTasksTabState();
 }
 
-class _PickTasksTabState extends State<PickTasksTab> with AutomaticKeepAliveClientMixin {
+class _PickTasksTabState extends State<PickTasksTab>
+    with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 
@@ -71,12 +78,15 @@ class _PickTasksTabState extends State<PickTasksTab> with AutomaticKeepAliveClie
     var list = _allTasks;
     final query = _searchController.text.trim().toLowerCase();
     if (query.isNotEmpty) {
-      list = list.where((t) =>
-        t.sku.toLowerCase().contains(query) ||
-        t.location.toLowerCase().contains(query) ||
-        t.taskNo.toLowerCase().contains(query) ||
-        t.zone.toLowerCase().contains(query),
-      ).toList();
+      list = list
+          .where(
+            (t) =>
+                t.sku.toLowerCase().contains(query) ||
+                t.location.toLowerCase().contains(query) ||
+                t.taskNo.toLowerCase().contains(query) ||
+                t.zone.toLowerCase().contains(query),
+          )
+          .toList();
     }
     switch (_filter) {
       case PickTaskFilter.all:
@@ -102,7 +112,8 @@ class _PickTasksTabState extends State<PickTasksTab> with AutomaticKeepAliveClie
       id: 'taskNo',
       label: 'Task No',
       flex: 1,
-      cellBuilder: (r) => Text(r.taskNo, overflow: TextOverflow.ellipsis, maxLines: 1),
+      cellBuilder: (r) =>
+          Text(r.taskNo, overflow: TextOverflow.ellipsis, maxLines: 1),
     ),
     UiV1DataGridColumn<DemoPickTask>(
       id: 'status',
@@ -117,31 +128,35 @@ class _PickTasksTabState extends State<PickTasksTab> with AutomaticKeepAliveClie
       id: 'zone',
       label: 'Zone',
       flex: 1,
-      cellBuilder: (r) => Text(r.zone, overflow: TextOverflow.ellipsis, maxLines: 1),
+      cellBuilder: (r) =>
+          Text(r.zone, overflow: TextOverflow.ellipsis, maxLines: 1),
     ),
     UiV1DataGridColumn<DemoPickTask>(
       id: 'location',
       label: 'Location',
       flex: 2,
-      cellBuilder: (r) => Text(r.location, overflow: TextOverflow.ellipsis, maxLines: 1),
+      cellBuilder: (r) =>
+          Text(r.location, overflow: TextOverflow.ellipsis, maxLines: 1),
     ),
     UiV1DataGridColumn<DemoPickTask>(
       id: 'sku',
       label: 'SKU',
       flex: 2,
-      cellBuilder: (r) => Text(r.sku, overflow: TextOverflow.ellipsis, maxLines: 1),
+      cellBuilder: (r) => SkuLinkText(sku: r.sku),
     ),
     UiV1DataGridColumn<DemoPickTask>(
       id: 'qty',
       label: 'Qty',
       flex: 1,
-      cellBuilder: (r) => Text('${r.qty}', overflow: TextOverflow.ellipsis, maxLines: 1),
+      cellBuilder: (r) =>
+          Text('${r.qty}', overflow: TextOverflow.ellipsis, maxLines: 1),
     ),
     UiV1DataGridColumn<DemoPickTask>(
       id: 'pickedQty',
       label: 'Picked',
       flex: 1,
-      cellBuilder: (r) => Text('${r.pickedQty}', overflow: TextOverflow.ellipsis, maxLines: 1),
+      cellBuilder: (r) =>
+          Text('${r.pickedQty}', overflow: TextOverflow.ellipsis, maxLines: 1),
     ),
   ];
 
@@ -158,7 +173,9 @@ class _PickTasksTabState extends State<PickTasksTab> with AutomaticKeepAliveClie
   Widget build(BuildContext context) {
     super.build(context);
     final theme = Theme.of(context);
-    final tokens = Theme.of(context).brightness == Brightness.dark ? UiV1Tokens.dark : UiV1Tokens.light;
+    final tokens = Theme.of(context).brightness == Brightness.dark
+        ? UiV1Tokens.dark
+        : UiV1Tokens.light;
     final s = tokens.spacing;
     final density = UiV1DensityTokens.dense;
 
@@ -188,18 +205,38 @@ class _PickTasksTabState extends State<PickTasksTab> with AutomaticKeepAliveClie
                 children: [
                   SegmentedButton<PickTaskFilter>(
                     segments: [
-                      ButtonSegment<PickTaskFilter>(value: PickTaskFilter.all, label: const Text('All')),
-                      ButtonSegment<PickTaskFilter>(value: PickTaskFilter.open, label: const Text('Open')),
-                      ButtonSegment<PickTaskFilter>(value: PickTaskFilter.inProgress, label: const Text('In Progress')),
-                      ButtonSegment<PickTaskFilter>(value: PickTaskFilter.done, label: const Text('Done')),
-                      ButtonSegment<PickTaskFilter>(value: PickTaskFilter.exceptions, label: const Text('Exceptions')),
+                      ButtonSegment<PickTaskFilter>(
+                        value: PickTaskFilter.all,
+                        label: const Text('All'),
+                      ),
+                      ButtonSegment<PickTaskFilter>(
+                        value: PickTaskFilter.open,
+                        label: const Text('Open'),
+                      ),
+                      ButtonSegment<PickTaskFilter>(
+                        value: PickTaskFilter.inProgress,
+                        label: const Text('In Progress'),
+                      ),
+                      ButtonSegment<PickTaskFilter>(
+                        value: PickTaskFilter.done,
+                        label: const Text('Done'),
+                      ),
+                      ButtonSegment<PickTaskFilter>(
+                        value: PickTaskFilter.exceptions,
+                        label: const Text('Exceptions'),
+                      ),
                     ],
                     selected: {_filter},
-                    onSelectionChanged: (v) => setState(() => _filter = v.first),
+                    onSelectionChanged: (v) =>
+                        setState(() => _filter = v.first),
                     style: ButtonStyle(
                       visualDensity: VisualDensity.compact,
-                      padding: WidgetStateProperty.all(EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xxs)),
-                      textStyle: WidgetStateProperty.all(theme.textTheme.labelMedium),
+                      padding: WidgetStateProperty.all(
+                        EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xxs),
+                      ),
+                      textStyle: WidgetStateProperty.all(
+                        theme.textTheme.labelMedium,
+                      ),
                     ),
                   ),
                   SizedBox(
@@ -213,7 +250,10 @@ class _PickTasksTabState extends State<PickTasksTab> with AutomaticKeepAliveClie
                         decoration: InputDecoration(
                           hintText: 'Search SKU, Location…',
                           isDense: true,
-                          contentPadding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xxs),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: s.sm,
+                            vertical: s.xxs,
+                          ),
                           border: const OutlineInputBorder(),
                           suffixIcon: _searchController.text.isNotEmpty
                               ? IconButton(
@@ -268,7 +308,10 @@ void _showTaskDetailDrawer(BuildContext context, DemoPickTask task) {
     barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
     transitionBuilder: (context, animation, secondaryAnimation, child) {
       return SlideTransition(
-        position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero).animate(animation),
+        position: Tween<Offset>(
+          begin: const Offset(1, 0),
+          end: Offset.zero,
+        ).animate(animation),
         child: child,
       );
     },
@@ -291,7 +334,9 @@ void _showTaskDetailDrawer(BuildContext context, DemoPickTask task) {
                       Expanded(
                         child: Text(
                           task.taskNo,
-                          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                           overflow: TextOverflow.ellipsis,
                           maxLines: 1,
                         ),
@@ -308,7 +353,12 @@ void _showTaskDetailDrawer(BuildContext context, DemoPickTask task) {
                 Expanded(
                   child: SingleChildScrollView(
                     padding: EdgeInsets.all(s.md),
-                    child: _TaskDetailContent(task: task, density: density, s: s, theme: theme),
+                    child: _TaskDetailContent(
+                      task: task,
+                      density: density,
+                      s: s,
+                      theme: theme,
+                    ),
                   ),
                 ),
               ],
@@ -343,7 +393,9 @@ void _showTaskDetailBottomSheet(BuildContext context, DemoPickTask task) {
                 Expanded(
                   child: Text(
                     task.taskNo,
-                    style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                   ),
@@ -362,7 +414,12 @@ void _showTaskDetailBottomSheet(BuildContext context, DemoPickTask task) {
               controller: scrollController,
               padding: EdgeInsets.all(s.md),
               children: [
-                _TaskDetailContent(task: task, density: density, s: s, theme: theme),
+                _TaskDetailContent(
+                  task: task,
+                  density: density,
+                  s: s,
+                  theme: theme,
+                ),
               ],
             ),
           ),
@@ -408,23 +465,37 @@ class _TaskDetailContent extends StatelessWidget {
           children: [
             FilledButton(
               onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Start (placeholder)')));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Start (placeholder)')),
+                );
               },
-              style: FilledButton.styleFrom(minimumSize: Size(0, density.buttonHeight)),
+              style: FilledButton.styleFrom(
+                minimumSize: Size(0, density.buttonHeight),
+              ),
               child: const Text('Start'),
             ),
             FilledButton.tonal(
               onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Complete (placeholder)')));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Complete (placeholder)')),
+                );
               },
-              style: FilledButton.styleFrom(minimumSize: Size(0, density.buttonHeight)),
+              style: FilledButton.styleFrom(
+                minimumSize: Size(0, density.buttonHeight),
+              ),
               child: const Text('Complete'),
             ),
             OutlinedButton(
               onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Report exception (placeholder)')));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Report exception (placeholder)'),
+                  ),
+                );
               },
-              style: OutlinedButton.styleFrom(minimumSize: Size(0, density.buttonHeight)),
+              style: OutlinedButton.styleFrom(
+                minimumSize: Size(0, density.buttonHeight),
+              ),
               child: const Text('Report exception'),
             ),
           ],
@@ -450,7 +521,9 @@ class _DetailRow extends StatelessWidget {
           width: 80,
           child: Text(
             label,
-            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
             overflow: TextOverflow.ellipsis,
             maxLines: 1,
           ),

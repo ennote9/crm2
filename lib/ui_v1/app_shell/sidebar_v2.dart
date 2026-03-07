@@ -141,19 +141,21 @@ class _SidebarV2Tile extends StatelessWidget {
             ],
           );
 
-    // Soft active background; very light hover (no size change)
-    final activeBg = colorScheme.primaryContainer.withValues(alpha: 0.4);
-    final hoverBg = colorScheme.onSurface.withValues(alpha: 0.06);
+    // Default (inactive): transparent — no card, merges with sidebar.
+    // Active: subtle pill + accent strip. Hover: very light overlay (both modes).
+    final activeBg = colorScheme.primaryContainer.withValues(alpha: 0.45);
+    final hoverBg = colorScheme.onSurface.withValues(alpha: 0.05);
 
     final tile = Material(
-      color: isActive ? activeBg : null,
+      type: MaterialType.transparency,
+      color: isActive ? activeBg : Colors.transparent,
       borderRadius: collapsed ? null : BorderRadius.circular(8),
       child: InkWell(
         onTap: onTap,
         borderRadius: collapsed ? null : BorderRadius.circular(8),
         hoverColor: hoverBg,
-        splashColor: colorScheme.primary.withValues(alpha: 0.12),
-        highlightColor: colorScheme.primary.withValues(alpha: 0.08),
+        splashColor: colorScheme.primary.withValues(alpha: 0.1),
+        highlightColor: colorScheme.primary.withValues(alpha: 0.06),
         child: Stack(
           children: [
             if (isActive)

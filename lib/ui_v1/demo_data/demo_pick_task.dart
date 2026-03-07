@@ -1,6 +1,7 @@
-// Demo pick task for Pick Tasks tab.
+// Demo pick task for Pick Tasks tab and Picking Worklist.
 
 /// In-memory pick task for demo.
+/// [orderNo] is set when task is returned from [DemoRepository.getAllPickTasks] (worklist).
 class DemoPickTask {
   DemoPickTask({
     required this.id,
@@ -11,6 +12,7 @@ class DemoPickTask {
     required this.sku,
     required this.qty,
     required this.pickedQty,
+    this.orderNo,
   });
 
   final String id;
@@ -21,4 +23,6 @@ class DemoPickTask {
   final String sku;
   final int qty;
   final int pickedQty;
+  /// Order number (set when aggregating for picking worklist).
+  final String? orderNo;
 }

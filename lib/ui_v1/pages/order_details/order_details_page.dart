@@ -26,6 +26,7 @@ class OrderDetailsPayload {
     required this.warehouse,
     required this.created,
     this.baseStatus,
+    this.initialTabIndex,
   });
   final String orderNo;
   final String status;
@@ -33,6 +34,8 @@ class OrderDetailsPayload {
   final String created;
   /// When status == "On Hold", chip shows this (e.g. "Allocated"); otherwise chip shows status.
   final String? baseStatus;
+  /// Tab to select when opening (0=Lines, 1=Pick Tasks, 2=HU, 3=Events). Default 0.
+  final int? initialTabIndex;
 }
 
 /// Order Details page: sticky header, summary strip, tabs (Lines / Pick Tasks / HU / Events).
@@ -202,6 +205,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
 
     return DefaultTabController(
       length: 4,
+      initialIndex: (widget.payload.initialTabIndex ?? 0).clamp(0, 3),
       child: Scaffold(
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

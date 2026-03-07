@@ -6,4 +6,6 @@ export 'demo_order.dart';
 export 'demo_order_line.dart';
 export 'demo_orders_filters.dart';
 export 'demo_pick_task.dart';
+export 'demo_packing_task.dart';
+export 'demo_product.dart';
 export 'demo_repository.dart';

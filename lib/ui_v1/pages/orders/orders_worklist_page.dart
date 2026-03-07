@@ -19,7 +19,10 @@ const double _kBreakpointUltraNarrow = 360;
 /// All state (search, filters, view, show statistics, selection) lives in this page;
 /// preserved when navigating to OrderDetailsPage and back (push/pop).
 class OrdersWorklistPage extends StatefulWidget {
-  const OrdersWorklistPage({super.key});
+  const OrdersWorklistPage({super.key, this.initialProductSku});
+
+  /// When set, list shows only orders that contain this product (e.g. from Product Details).
+  final String? initialProductSku;
 
   @override
   State<OrdersWorklistPage> createState() => _OrdersWorklistPageState();
@@ -30,6 +33,7 @@ class _OrdersWorklistPageState extends State<OrdersWorklistPage> {
   String _searchText = '';
   Set<String> _statusFilters = {};
   String? _warehouseFilter;
+  String? _productSkuFilter;
   UiV1WorklistViewId _viewId = UiV1WorklistViewId.all;
   bool _isCustomView = false;
   bool _showStatistics = false;
@@ -40,6 +44,7 @@ class _OrdersWorklistPageState extends State<OrdersWorklistPage> {
   @override
   void initState() {
     super.initState();
+    _productSkuFilter = widget.initialProductSku;
     _searchController = TextEditingController(text: _searchText);
     _searchFocusNode = FocusNode();
   }
@@ -51,12 +56,17 @@ class _OrdersWorklistPageState extends State<OrdersWorklistPage> {
     super.dispose();
   }
 
-  List<DemoOrder> get _rows => demoRepository.getOrders(DemoOrdersFilters(
-    search: _searchText,
-    statusFilters: _statusFilters,
-    warehouse: _warehouseFilter,
-    viewId: _viewId.id,
-  ));
+  List<DemoOrder> get _rows {
+    if (_productSkuFilter != null) {
+      return demoRepository.getOrdersForProduct(_productSkuFilter!);
+    }
+    return demoRepository.getOrders(DemoOrdersFilters(
+      search: _searchText,
+      statusFilters: _statusFilters,
+      warehouse: _warehouseFilter,
+      viewId: _viewId.id,
+    ));
+  }
 
   void _applyViewPreset(UiV1WorklistViewId viewId) {
     setState(() {
@@ -97,6 +107,12 @@ class _OrdersWorklistPageState extends State<OrdersWorklistPage> {
 
   List<UiV1FilterChipItem> get _filterChips {
     final chips = <UiV1FilterChipItem>[];
+    if (_productSkuFilter != null) {
+      chips.add(UiV1FilterChipItem(
+        label: 'Product: $_productSkuFilter',
+        onRemove: () => setState(() => _productSkuFilter = null),
+      ));
+    }
     for (final s in _statusFilters) {
       chips.add(UiV1FilterChipItem(
         label: 'Status: $s',
@@ -123,6 +139,7 @@ class _OrdersWorklistPageState extends State<OrdersWorklistPage> {
       _searchController.text = '';
       _statusFilters = {};
       _warehouseFilter = null;
+      _productSkuFilter = null;
       _viewId = UiV1WorklistViewId.all;
       _isCustomView = false;
     });
