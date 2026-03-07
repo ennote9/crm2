@@ -1,27 +1,24 @@
-// Orders worklist: production list (toolbar + stats + grid/cards + bulk bar). State lives in page.
+// Orders worklist: first pilot consumer of Unified Table Platform v1.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../components/bulk_action_bar/index.dart';
 import '../../components/chips/index.dart';
-import '../../components/data_grid/index.dart';
-import '../../components/toolbar/index.dart';
+import '../../components/table_platform/index.dart';
 import '../../demo_data/demo_data.dart';
 import '../../icons/ui_icons.dart';
 import '../../theme/density.dart';
 import '../order_details/order_details_page.dart';
+import 'orders_table_config.dart';
 
 const double _kBreakpointCardList = 850;
 const double _kBreakpointUltraNarrow = 360;
 
-/// Production orders list: CommandToolbar, optional Stats panel, DataGrid/card list, BulkActionBar.
-/// All state (search, filters, view, show statistics, selection) lives in this page;
-/// preserved when navigating to OrderDetailsPage and back (push/pop).
+/// Orders list via Unified Table Platform: toolbar, stats, grid, saved views, current-view metrics.
 class OrdersWorklistPage extends StatefulWidget {
   const OrdersWorklistPage({super.key, this.initialProductSku});
 
-  /// When set, list shows only orders that contain this product (e.g. from Product Details).
   final String? initialProductSku;
 
   @override
@@ -29,14 +26,7 @@ class OrdersWorklistPage extends StatefulWidget {
 }
 
 class _OrdersWorklistPageState extends State<OrdersWorklistPage> {
-  // Worklist state (preserved on push/pop to details)
-  String _searchText = '';
-  Set<String> _statusFilters = {};
-  String? _warehouseFilter;
-  String? _productSkuFilter;
-  UiV1WorklistViewId _viewId = UiV1WorklistViewId.all;
-  bool _isCustomView = false;
-  bool _showStatistics = false;
+  late UnifiedTableController<DemoOrder> _controller;
   Set<String> _selectedIds = {};
   late TextEditingController _searchController;
   late FocusNode _searchFocusNode;
@@ -44,8 +34,10 @@ class _OrdersWorklistPageState extends State<OrdersWorklistPage> {
   @override
   void initState() {
     super.initState();
-    _productSkuFilter = widget.initialProductSku;
-    _searchController = TextEditingController(text: _searchText);
+    _controller = UnifiedTableController<DemoOrder>(
+      config: createOrdersTableConfig(_openOrderDetails),
+    );
+    _searchController = TextEditingController(text: _controller.state.searchQuery);
     _searchFocusNode = FocusNode();
   }
 
@@ -56,108 +48,108 @@ class _OrdersWorklistPageState extends State<OrdersWorklistPage> {
     super.dispose();
   }
 
-  List<DemoOrder> get _rows {
-    if (_productSkuFilter != null) {
-      return demoRepository.getOrdersForProduct(_productSkuFilter!);
+  List<DemoOrder> get _fullList {
+    if (widget.initialProductSku != null) {
+      return demoRepository.getOrdersForProduct(widget.initialProductSku!);
     }
-    return demoRepository.getOrders(DemoOrdersFilters(
-      search: _searchText,
-      statusFilters: _statusFilters,
-      warehouse: _warehouseFilter,
-      viewId: _viewId.id,
-    ));
+    return demoRepository.getOrders(const DemoOrdersFilters());
   }
 
-  void _applyViewPreset(UiV1WorklistViewId viewId) {
-    setState(() {
-      _viewId = viewId;
-      _isCustomView = false;
-      switch (viewId) {
-        case UiV1WorklistViewId.all:
-          _statusFilters = {};
-          _warehouseFilter = null;
-          break;
-        case UiV1WorklistViewId.onHold:
-          _statusFilters = {'On Hold'};
-          _warehouseFilter = null;
-          break;
-        case UiV1WorklistViewId.shortage:
-          _statusFilters = {'Shortage'};
-          _warehouseFilter = null;
-          break;
-        case UiV1WorklistViewId.today:
-          _statusFilters = {};
-          _warehouseFilter = null;
-          break;
-        case UiV1WorklistViewId.custom:
-        default:
-          _statusFilters = {};
-          _warehouseFilter = null;
-      }
-    });
-  }
+  List<DemoOrder> get _visibleRows => _controller.getVisibleRows(_fullList);
 
-  void _onFiltersApplied(UiV1OrdersFiltersResult result) {
-    setState(() {
-      _statusFilters = Set.from(result.statuses);
-      _warehouseFilter = result.warehouse;
-      _isCustomView = true;
-    });
-  }
-
-  List<UiV1FilterChipItem> get _filterChips {
-    final chips = <UiV1FilterChipItem>[];
-    if (_productSkuFilter != null) {
-      chips.add(UiV1FilterChipItem(
-        label: 'Product: $_productSkuFilter',
-        onRemove: () => setState(() => _productSkuFilter = null),
-      ));
-    }
-    for (final s in _statusFilters) {
-      chips.add(UiV1FilterChipItem(
-        label: 'Status: $s',
-        onRemove: () {
-          setState(() {
-            final next = Set<String>.from(_statusFilters)..remove(s);
-            _statusFilters = next;
-          });
-        },
-      ));
-    }
-    if (_warehouseFilter != null) {
-      chips.add(UiV1FilterChipItem(
-        label: 'Warehouse: $_warehouseFilter',
-        onRemove: () => setState(() => _warehouseFilter = null),
-      ));
-    }
-    return chips;
-  }
-
-  void _onMoreReset() {
-    setState(() {
-      _searchText = '';
-      _searchController.text = '';
-      _statusFilters = {};
-      _warehouseFilter = null;
-      _productSkuFilter = null;
-      _viewId = UiV1WorklistViewId.all;
-      _isCustomView = false;
-    });
+  void _openOrderDetails(DemoOrder row) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => OrderDetailsPage(
+          payload: OrderDetailsPayload(
+            orderNo: row.orderNo,
+            status: row.status,
+            warehouse: row.warehouse,
+            created: row.createdAt,
+            baseStatus: row.status == 'On Hold' ? row.baseStatus ?? 'Allocated' : null,
+          ),
+        ),
+      ),
+    );
   }
 
   void _onSearchSubmit() {
-    setState(() => _searchText = _searchController.text);
+    _controller.state = _controller.state.copyWithAsCustom(
+      searchQuery: _searchController.text,
+    );
+    setState(() {});
   }
 
-  (int total, int inProgress, int onHold, int shortage) get _statsCounts {
-    final list = _rows;
-    var inProgress = 0, onHold = 0, shortage = 0;
-    for (final o in list) {
-      if (o.status == 'Allocating' || o.status == 'Picking' || o.status == 'Packing') inProgress++;
-      if (o.status == 'On Hold') onHold++;
-      if (o.status == 'Shortage') shortage++;
+  void _onSearchClear() {
+    _searchController.clear();
+    _controller.state = _controller.state.copyWithAsCustom(searchQuery: '');
+    setState(() {});
+  }
+
+  void _onReset() {
+    _searchController.clear();
+    _controller.state = _controller.config.initialState;
+    setState(() {});
+  }
+
+  void _onFiltersTap() {
+    showUnifiedViewPanel<DemoOrder>(
+      context: context,
+      controller: _controller,
+      fullList: _fullList,
+      onStateChanged: () => setState(() {}),
+      initialTabIndex: 0,
+    );
+  }
+
+  void _onViewPanelTap() {
+    showUnifiedViewPanel<DemoOrder>(
+      context: context,
+      controller: _controller,
+      fullList: _fullList,
+      onStateChanged: () => setState(() {}),
+    );
+  }
+
+  List<UnifiedFilterChipItem> get _filterChips {
+    final config = _controller.config;
+    return _controller.state.filters.map((d) {
+      String columnLabel = d.columnId;
+      for (final c in config.columns) {
+        if (c.id == d.columnId) {
+          columnLabel = c.label;
+          break;
+        }
+      }
+      final valueStr = d.toHumanReadableValueString();
+      final label = valueStr.isEmpty ? columnLabel : '$columnLabel: $valueStr';
+      return UnifiedFilterChipItem(
+        label: label,
+        onRemove: () {
+          _controller.state = _controller.state.removeFilter(columnId: d.columnId);
+          setState(() {});
+        },
+      );
+    }).toList();
+  }
+
+  String? get _activeViewName {
+    final id = _controller.state.activeViewId;
+    if (id == null) return 'Custom';
+    for (final v in _controller.config.savedViews) {
+      if (v.id == id) return v.name;
     }
-    return (list.length, inProgress, onHold, shortage);
+    return id;
+  }
+
+  Map<String, String> get _statsValues {
+    final visible = _visibleRows;
+    final raw = _controller.getStatsValues(visible);
+    final out = <String, String>{};
+    for (final e in raw.entries) {
+      out[e.key] = _controller.formatMetricValue(e.key, e.value);
+    }
+    return out;
   }
 
   List<Widget> _bulkActions(BuildContext context) {
@@ -181,52 +173,6 @@ class _OrdersWorklistPageState extends State<OrdersWorklistPage> {
       ),
     ];
   }
-
-  void _openOrderDetails(DemoOrder row) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => OrderDetailsPage(
-          payload: OrderDetailsPayload(
-            orderNo: row.orderNo,
-            status: row.status,
-            warehouse: row.warehouse,
-            created: row.createdAt,
-            baseStatus: row.status == 'On Hold' ? row.baseStatus ?? 'Allocated' : null,
-          ),
-        ),
-      ),
-    );
-  }
-
-  static List<UiV1DataGridColumn<DemoOrder>> get _orderColumns => [
-    UiV1DataGridColumn<DemoOrder>(
-      id: 'orderNo',
-      label: 'Order No',
-      flex: 3,
-      cellBuilder: (r) => Text(r.orderNo, overflow: TextOverflow.ellipsis, maxLines: 1),
-    ),
-    UiV1DataGridColumn<DemoOrder>(
-      id: 'status',
-      label: 'Status',
-      flex: 2,
-      cellBuilder: (r) => UiV1StatusChip(
-        label: r.status,
-        variant: UiV1StatusChip.variantFromStatus(r.status),
-      ),
-    ),
-    UiV1DataGridColumn<DemoOrder>(
-      id: 'warehouse',
-      label: 'Warehouse',
-      flex: 2,
-      cellBuilder: (r) => Text(r.warehouse, overflow: TextOverflow.ellipsis, maxLines: 1),
-    ),
-    UiV1DataGridColumn<DemoOrder>(
-      id: 'created',
-      label: 'Created',
-      flex: 2,
-      cellBuilder: (r) => Text(r.createdAt, overflow: TextOverflow.ellipsis, maxLines: 1),
-    ),
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -254,35 +200,56 @@ class _OrdersWorklistPageState extends State<OrdersWorklistPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            UiV1CommandToolbar(
+            UnifiedTableToolbar(
               searchController: _searchController,
               searchFocusNode: _searchFocusNode,
               onSearchSubmit: _onSearchSubmit,
-              onSearchClear: () {
-                _searchController.clear();
-                setState(() => _searchText = '');
-              },
+              onSearchClear: _onSearchClear,
+              searchHint: 'Search order no, warehouse, status…',
               filterChips: _filterChips,
-              onFiltersTap: () => showUiV1OrdersFiltersPanel(
-                context: context,
-                initialStatuses: _statusFilters,
-                initialWarehouse: _warehouseFilter,
-                onApply: _onFiltersApplied,
-              ),
-              currentViewId: _viewId,
-              isCustomView: _isCustomView,
-              onViewSelected: _applyViewPreset,
-              onMoreReset: _onMoreReset,
-              onDevStateSelected: null,
-              showStatistics: _showStatistics,
-              onShowStatisticsChanged: (v) => setState(() => _showStatistics = v),
+              onFiltersTap: _onFiltersTap,
+              onViewPanelTap: _onViewPanelTap,
+              onReset: _onReset,
+              extraActions: widget.initialProductSku != null
+                  ? Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: Text(
+                        'Product: ${widget.initialProductSku}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                      ),
+                    )
+                  : null,
+              statsVisible: _controller.state.statsVisible,
             ),
-            if (_showStatistics) ...[
-              UiV1OrdersStatsPanel(
-                total: _statsCounts.$1,
-                inProgress: _statsCounts.$2,
-                onHold: _statsCounts.$3,
-                shortage: _statsCounts.$4,
+            if (_controller.state.statsVisible) ...[
+              UnifiedStatsPanel<DemoOrder>(
+                metricDefinitions: _controller.config.availableMetrics,
+                selectedMetricIds: _controller.state.selectedMetricIds,
+                values: _statsValues,
+              ),
+            ],
+            if (_controller.state.searchQuery.isNotEmpty ||
+                _controller.state.filters.isNotEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+                child: UnifiedFilterStateSummary(
+                  searchQuery: _controller.state.searchQuery,
+                  filterDescriptors: _controller.state.filters,
+                  getColumnLabel: (id) {
+                    for (final c in _controller.config.columns) {
+                      if (c.id == id) return c.label;
+                    }
+                    return id;
+                  },
+                  onRemoveFilter: (columnId) {
+                    _controller.state = _controller.state.removeFilter(columnId: columnId);
+                    setState(() {});
+                  },
+                  viewName: _activeViewName,
+                  onClearSearch: _onSearchClear,
+                ),
               ),
             ],
             Expanded(
@@ -296,7 +263,7 @@ class _OrdersWorklistPageState extends State<OrdersWorklistPage> {
                       clipBehavior: Clip.none,
                       children: [
                         _OrdersCardList(
-                          rows: _rows,
+                          rows: _visibleRows,
                           selectedIds: _selectedIds,
                           onSelectionChanged: (ids) => setState(() => _selectedIds = ids),
                           loading: false,
@@ -329,18 +296,18 @@ class _OrdersWorklistPageState extends State<OrdersWorklistPage> {
                     children: [
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: UiV1DataGrid<DemoOrder>(
-                          columns: _orderColumns,
-                          rows: _rows,
-                          rowIdGetter: (r) => r.id,
+                        child: UnifiedTableGrid<DemoOrder>(
+                          controller: _controller,
+                          fullList: _fullList,
                           selectedIds: _selectedIds,
                           onSelectionChanged: (ids) => setState(() => _selectedIds = ids),
                           loading: false,
                           errorMessage: null,
                           onRetry: null,
                           emptyMessage: 'No orders',
-                          onRowOpen: _openOrderDetails,
                           showRowActions: true,
+                          showHeaderMenus: true,
+                          onStateChanged: () => setState(() {}),
                           onRowActions: (row) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(content: Text('Actions for ${row.orderNo}')),

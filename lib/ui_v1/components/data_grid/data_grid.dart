@@ -27,6 +27,7 @@ class UiV1DataGrid<T> extends StatefulWidget {
     this.showRowActions = true,
     this.onRowActions,
     this.density = UiV1Density.dense,
+    this.headerCellBuilder,
   });
 
   final List<UiV1DataGridColumn<T>> columns;
@@ -42,6 +43,8 @@ class UiV1DataGrid<T> extends StatefulWidget {
   final bool showRowActions;
   final void Function(T)? onRowActions;
   final UiV1Density density;
+  /// When set, used to build each header cell (label + menu, etc.). Column index 0-based.
+  final Widget Function(BuildContext context, UiV1DataGridColumn<T> column, int columnIndex)? headerCellBuilder;
 
   @override
   State<UiV1DataGrid<T>> createState() => _UiV1DataGridState<T>();
@@ -215,15 +218,17 @@ class _UiV1DataGridState<T> extends State<UiV1DataGrid<T>> {
                   padding: EdgeInsets.symmetric(horizontal: padX, vertical: padY),
                   child: Align(
                     alignment: Alignment.centerLeft,
-                    child: Text(
-                      widget.columns[i].label,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                    ),
+                    child: widget.headerCellBuilder != null
+                        ? widget.headerCellBuilder!(context, widget.columns[i], i)
+                        : Text(
+                            widget.columns[i].label,
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              fontWeight: FontWeight.w500,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
                   ),
                 ),
               ),
