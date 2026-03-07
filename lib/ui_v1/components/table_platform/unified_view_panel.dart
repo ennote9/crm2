@@ -258,7 +258,7 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Header: title + view selector + actions + close
+        // Header: row1 = title + selector + close; row2 = actions
         Container(
           width: double.infinity,
           padding: EdgeInsets.fromLTRB(s.md, s.sm, s.xs, s.sm),
@@ -271,51 +271,60 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
             mainAxisSize: MainAxisSize.min,
             children: [
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  Text(
+                    'View',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                  SizedBox(width: s.sm),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'View',
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: theme.colorScheme.onSurface,
-                            letterSpacing: 0.2,
-                          ),
-                        ),
-                        SizedBox(height: s.xs),
-                        DropdownButtonFormField<String?>(
-                key: ValueKey(state.activeViewId),
-                initialValue: state.activeViewId,
-                isDense: true,
-                isExpanded: true,
-                decoration: InputDecoration(
-                  isDense: true,
-                  contentPadding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(tokens.radius.sm)),
-                  filled: true,
-                  fillColor: theme.colorScheme.surface,
-                ),
-                items: viewDropdownItems,
-                onChanged: (id) {
-                  if (id == null) {
-                    _applyState(state.copyWith(activeViewId: null));
-                  } else if (id == SavedTableView.kStandardViewId) {
-                    _applyStandardView();
-                  } else {
-                    for (final v in _savedViews) {
-                      if (v.id == id) {
-                        widget.controller.applyView(v);
-                        widget.onStateChanged();
-                        setState(() {});
-                        break;
-                      }
-                    }
-                  }
-                },
+                    child: DropdownButtonFormField<String?>(
+                      key: ValueKey(state.activeViewId),
+                      initialValue: state.activeViewId,
+                      isDense: true,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(tokens.radius.sm)),
+                        filled: true,
+                        fillColor: theme.colorScheme.surface,
+                      ),
+                      items: viewDropdownItems,
+                      onChanged: (id) {
+                        if (id == null) {
+                          _applyState(state.copyWith(activeViewId: null));
+                        } else if (id == SavedTableView.kStandardViewId) {
+                          _applyStandardView();
+                        } else {
+                          for (final v in _savedViews) {
+                            if (v.id == id) {
+                              widget.controller.applyView(v);
+                              widget.onStateChanged();
+                              setState(() {});
+                              break;
+                            }
+                          }
+                        }
+                      },
+                    ),
+                  ),
+                  if (widget.onClose != null) ...[
+                    SizedBox(width: s.xs),
+                    IconButton(
+                      onPressed: widget.onClose,
+                      icon: const Icon(Icons.close, size: 22),
+                      style: IconButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        minimumSize: const Size(40, 40),
+                      ),
+                    ),
+                  ],
+                ],
               ),
               if (hasCrud) ...[
                 SizedBox(height: s.sm),
@@ -358,29 +367,14 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
                   child: TextButton(onPressed: _reset, child: const Text('Reset')),
                 ),
               ],
-                      ],
-                    ),
-                  ),
-                  if (widget.onClose != null)
-                    IconButton(
-                      onPressed: widget.onClose,
-                      icon: const Icon(Icons.close),
-                      style: IconButton.styleFrom(
-                        visualDensity: VisualDensity.compact,
-                        padding: EdgeInsets.zero,
-                        minimumSize: const Size(40, 40),
-                      ),
-                    ),
-                ],
-              ),
             ],
           ),
         ),
         // Tab strip
         Container(
-          padding: EdgeInsets.symmetric(horizontal: s.xs, vertical: s.xxs),
+          padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xxs),
           decoration: BoxDecoration(
-            color: theme.colorScheme.surface.withValues(alpha: 0.6),
+            color: theme.colorScheme.surface.withValues(alpha: 0.5),
             border: Border(bottom: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.2))),
           ),
           child: Row(
@@ -767,11 +761,11 @@ class _InlineFilterRowState<T> extends State<_InlineFilterRow<T>> {
       return [
         TextField(
           controller: _textController,
-          maxLines: 4,
+          maxLines: 3,
           minLines: 2,
           decoration: InputDecoration(
             isDense: true,
-            hintText: 'Paste or type; separators: newline, comma, semicolon, tab',
+            hintText: 'One value per line, or comma/semicolon separated',
             alignLabelWithHint: true,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(tokens.radius.xs)),
             contentPadding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
@@ -792,9 +786,8 @@ class _InlineFilterRowState<T> extends State<_InlineFilterRow<T>> {
         SizedBox(height: s.xxs),
         Text(
           'Parsed: $parsed · Unique: $unique',
-          style: theme.textTheme.bodySmall?.copyWith(
+          style: theme.textTheme.labelSmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
-            fontSize: 11,
           ),
         ),
       ];
@@ -1064,6 +1057,7 @@ class _FiltersSection<T> extends StatelessWidget {
     final theme = Theme.of(context);
     final tokens = Theme.of(context).brightness == Brightness.dark ? UiV1Tokens.dark : UiV1Tokens.light;
     final s = tokens.spacing;
+    final radius = tokens.radius;
     final config = controller.config;
     final filters = controller.state.filters;
     final filterableColumns = config.columns.where((c) => c.filterable && c.valueGetter != null).toList();
@@ -1081,7 +1075,32 @@ class _FiltersSection<T> extends StatelessWidget {
           ),
         ),
         SizedBox(height: s.sm),
-        if (filters.isNotEmpty) ...[
+        if (filters.isEmpty && filterableColumns.isNotEmpty)
+          Container(
+            padding: EdgeInsets.symmetric(vertical: s.sm, horizontal: s.sm),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(radius.sm),
+              border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.2)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.filter_list, size: 24, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7)),
+                SizedBox(height: s.xs),
+                Text(
+                  'No filter conditions',
+                  style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+                SizedBox(height: s.xxs),
+                Text(
+                  'Add a condition below.',
+                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+          )
+        else if (filters.isNotEmpty) ...[
           ...filters.map((f) {
             return Padding(
               padding: EdgeInsets.only(bottom: s.sm),
@@ -1106,42 +1125,50 @@ class _FiltersSection<T> extends StatelessWidget {
               ),
             );
           }),
-          Padding(
-            padding: EdgeInsets.only(bottom: s.sm),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton(
-                onPressed: () {
-                  controller.state = controller.state.clearFilters();
-                  onStateChanged();
-                },
-                child: Text(
-                  'Clear all filters',
-                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
+        ],
+        if (filterableColumns.isNotEmpty) ...[
+          SizedBox(height: s.sm),
+          Container(
+            padding: EdgeInsets.symmetric(vertical: s.xs, horizontal: s.xs),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(radius.xs),
+              border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.2)),
+            ),
+            child: Row(
+              children: [
+                if (filters.isNotEmpty)
+                  TextButton(
+                    onPressed: () {
+                      controller.state = controller.state.clearFilters();
+                      onStateChanged();
+                    },
+                    style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
+                    child: Text(
+                      'Clear all filters',
+                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
+                    ),
+                  ),
+                if (filters.isNotEmpty) SizedBox(width: s.sm),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    final first = filterableColumns.first;
+                    final mode = _effectiveFilterMode(first);
+                    controller.state = controller.state.addOrReplaceFilter(UnifiedFilterDescriptor(
+                      columnId: first.id,
+                      operator: _defaultOperator(mode),
+                      id: 'f_${DateTime.now().millisecondsSinceEpoch}',
+                    ));
+                    onStateChanged();
+                  },
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add condition'),
+                  style: OutlinedButton.styleFrom(minimumSize: const Size(0, 32)),
                 ),
-              ),
+              ],
             ),
           ),
         ],
-        if (filterableColumns.isNotEmpty)
-          OutlinedButton.icon(
-            onPressed: () {
-              final first = filterableColumns.first;
-              final mode = _effectiveFilterMode(first);
-              controller.state = controller.state.addOrReplaceFilter(UnifiedFilterDescriptor(
-                columnId: first.id,
-                operator: _defaultOperator(mode),
-                id: 'f_${DateTime.now().millisecondsSinceEpoch}',
-              ));
-              onStateChanged();
-            },
-            icon: const Icon(Icons.add, size: 18),
-            label: const Text('Add condition'),
-            style: OutlinedButton.styleFrom(
-              alignment: Alignment.centerLeft,
-              minimumSize: const Size(0, 36),
-            ),
-          ),
       ],
     );
   }
@@ -1241,13 +1268,25 @@ class _ColumnsSectionState<T> extends State<_ColumnsSection<T>> {
             color: theme.colorScheme.onSurface,
           ),
         ),
-        SizedBox(height: s.xs),
+        SizedBox(height: s.sm),
         if (visibleOrdered.isEmpty)
-          Padding(
-            padding: EdgeInsets.symmetric(vertical: s.sm),
-            child: Text(
-              'No visible columns',
-              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          Container(
+            padding: EdgeInsets.symmetric(vertical: s.sm, horizontal: s.sm),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(radius.sm),
+              border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.2)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.view_column_outlined, size: 24, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7)),
+                SizedBox(height: s.xs),
+                Text(
+                  'No visible columns',
+                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ],
             ),
           )
         else
@@ -1262,9 +1301,9 @@ class _ColumnsSectionState<T> extends State<_ColumnsSection<T>> {
         Container(
           padding: EdgeInsets.symmetric(vertical: s.xs, horizontal: s.xs),
           decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
             borderRadius: BorderRadius.circular(radius.xs),
-            border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.12)),
+            border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.2)),
           ),
           child: Wrap(
             spacing: s.xs,
@@ -1322,70 +1361,89 @@ class _ColumnsSectionState<T> extends State<_ColumnsSection<T>> {
           Container(
             padding: EdgeInsets.symmetric(vertical: s.sm, horizontal: s.sm),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surface.withValues(alpha: 0.5),
+              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(radius.sm),
-              border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.12)),
+              border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.2)),
             ),
-            child: Text(
-              'No hidden columns',
-              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.visibility_off, size: 24, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7)),
+                SizedBox(height: s.xs),
+                Text(
+                  'No hidden columns',
+                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ],
             ),
           )
         else
-          Container(
-            padding: EdgeInsets.all(s.sm),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surface.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(radius.sm),
-              border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.15)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: hiddenIds.map((columnId) {
-                final column = _columnById(config, columnId);
-                if (column == null) return const SizedBox.shrink();
-                final selected = _selectedColumnId == columnId;
-                return InkWell(
-                  onTap: () => setState(() => _selectedColumnId = columnId),
-                  borderRadius: BorderRadius.circular(radius.xs),
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: s.xxs),
-                    child: Row(
-                      children: [
-                        Icon(Icons.visibility_off, size: 18, color: theme.colorScheme.onSurfaceVariant),
-                        SizedBox(width: s.xs),
-                        Expanded(
-                          child: Text(
-                            column.label,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: selected ? theme.colorScheme.primary : null,
-                              fontWeight: selected ? FontWeight.w500 : null,
-                            ),
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            final next = Set<String>.from(visibleIds)..add(columnId);
-                            final visibleOrderedNew = order.where((id) => next.contains(id)).toList();
-                            widget.controller.state = widget.controller.state.copyWithAsCustom(
-                              visibleColumnIds: visibleOrderedNew,
-                              columnOrder: order,
-                            );
-                            widget.onStateChanged();
-                            if (_selectedColumnId == columnId) _selectedColumnId = null;
-                            setState(() {});
-                          },
-                          style: TextButton.styleFrom(minimumSize: const Size(0, 28), padding: EdgeInsets.symmetric(horizontal: s.xs)),
-                          child: const Text('Show'),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final columnId in hiddenIds)
+                _buildHiddenColumnRow(columnId, config, order, visibleIds, theme, s, radius),
+            ],
           ),
       ],
+    );
+  }
+
+  Widget _buildHiddenColumnRow(String columnId, UnifiedTableConfig<T> config, List<String> order, Set<String> visibleIds, ThemeData theme, UiV1SpacingTokens s, UiV1RadiusTokens radius) {
+    final column = _columnById(config, columnId);
+    if (column == null) return const SizedBox.shrink();
+    final selected = _selectedColumnId == columnId;
+    return InkWell(
+      onTap: () => setState(() => _selectedColumnId = columnId),
+      borderRadius: BorderRadius.circular(radius.xs),
+      child: Container(
+        margin: EdgeInsets.only(bottom: s.xs),
+        padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
+        decoration: BoxDecoration(
+          color: selected
+              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.45)
+              : theme.colorScheme.surface.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(radius.xs),
+          border: Border.all(
+            color: selected ? theme.colorScheme.primary : theme.colorScheme.outline.withValues(alpha: 0.15),
+            width: selected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.visibility_off,
+              size: 20,
+              color: selected ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
+            ),
+            SizedBox(width: s.sm),
+            Expanded(
+              child: Text(
+                column.label,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: selected ? FontWeight.w500 : null,
+                  color: selected ? theme.colorScheme.primary : null,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                final next = Set<String>.from(visibleIds)..add(columnId);
+                final visibleOrderedNew = order.where((id) => next.contains(id)).toList();
+                widget.controller.state = widget.controller.state.copyWithAsCustom(
+                  visibleColumnIds: visibleOrderedNew,
+                  columnOrder: order,
+                );
+                widget.onStateChanged();
+                if (_selectedColumnId == columnId) _selectedColumnId = null;
+                setState(() {});
+              },
+              style: TextButton.styleFrom(minimumSize: const Size(0, 28), padding: EdgeInsets.symmetric(horizontal: s.xs)),
+              child: const Text('Show'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1401,12 +1459,12 @@ class _ColumnsSectionState<T> extends State<_ColumnsSection<T>> {
         padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
         decoration: BoxDecoration(
           color: selected
-              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
+              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.55)
               : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(radius.xs),
           border: Border.all(
-            color: selected ? theme.colorScheme.primary.withValues(alpha: 0.6) : theme.colorScheme.outline.withValues(alpha: 0.2),
-            width: selected ? 1.5 : 1,
+            color: selected ? theme.colorScheme.primary : theme.colorScheme.outline.withValues(alpha: 0.2),
+            width: selected ? 2 : 1,
           ),
         ),
         child: Row(
@@ -1515,19 +1573,19 @@ class _SortSectionState<T> extends State<_SortSection<T>> {
             color: theme.colorScheme.onSurface,
           ),
         ),
-        SizedBox(height: s.xs),
+        SizedBox(height: s.sm),
         if (sorts.isEmpty)
           Container(
-            padding: EdgeInsets.symmetric(vertical: s.md, horizontal: s.sm),
+            padding: EdgeInsets.symmetric(vertical: s.sm, horizontal: s.sm),
             decoration: BoxDecoration(
               color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(radius.sm),
-              border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.15)),
+              border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.2)),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.sort, size: 28, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7)),
+                Icon(Icons.sort, size: 24, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7)),
                 SizedBox(height: s.xs),
                 Text(
                   'No sort rules',
@@ -1535,7 +1593,7 @@ class _SortSectionState<T> extends State<_SortSection<T>> {
                 ),
                 SizedBox(height: s.xxs),
                 Text(
-                  'Add a rule below to sort the table.',
+                  'Add a rule below.',
                   style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                 ),
               ],
@@ -1553,9 +1611,9 @@ class _SortSectionState<T> extends State<_SortSection<T>> {
         Container(
           padding: EdgeInsets.symmetric(vertical: s.xs, horizontal: s.xs),
           decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
             borderRadius: BorderRadius.circular(radius.xs),
-            border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.12)),
+            border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.2)),
           ),
           child: Wrap(
             spacing: s.xs,
@@ -1623,18 +1681,18 @@ class _SortSectionState<T> extends State<_SortSection<T>> {
     final selected = _selectedSortIndex == i;
     return InkWell(
       onTap: () => setState(() => _selectedSortIndex = i),
-      borderRadius: BorderRadius.circular(radius.sm),
+      borderRadius: BorderRadius.circular(radius.xs),
       child: Container(
         margin: EdgeInsets.only(bottom: s.xs),
         padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
         decoration: BoxDecoration(
           color: selected
-              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
+              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.55)
               : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-          borderRadius: BorderRadius.circular(radius.sm),
+          borderRadius: BorderRadius.circular(radius.xs),
           border: Border.all(
-            color: selected ? theme.colorScheme.primary.withValues(alpha: 0.6) : theme.colorScheme.outline.withValues(alpha: 0.2),
-            width: selected ? 1.5 : 1,
+            color: selected ? theme.colorScheme.primary : theme.colorScheme.outline.withValues(alpha: 0.2),
+            width: selected ? 2 : 1,
           ),
         ),
         child: Row(
@@ -1786,13 +1844,20 @@ class _StatisticsSectionState<T> extends State<_StatisticsSection<T>> {
           Container(
             padding: EdgeInsets.symmetric(vertical: s.sm, horizontal: s.sm),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surface.withValues(alpha: 0.5),
+              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(radius.sm),
-              border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.12)),
+              border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.2)),
             ),
-            child: Text(
-              'No metrics selected',
-              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.bar_chart_outlined, size: 24, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7)),
+                SizedBox(height: s.xs),
+                Text(
+                  'No metrics selected',
+                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ],
             ),
           )
         else
@@ -1807,9 +1872,9 @@ class _StatisticsSectionState<T> extends State<_StatisticsSection<T>> {
         Container(
           padding: EdgeInsets.symmetric(vertical: s.xs, horizontal: s.xs),
           decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
             borderRadius: BorderRadius.circular(radius.xs),
-            border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.12)),
+            border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.2)),
           ),
           child: Wrap(
             spacing: s.xs,
@@ -1866,11 +1931,23 @@ class _StatisticsSectionState<T> extends State<_StatisticsSection<T>> {
             ),
           ),
           SizedBox(height: s.xs),
-          OutlinedButton.icon(
-            onPressed: _selectedAvailableMetricId != null ? addSelectedAvailable : null,
-            icon: const Icon(Icons.add, size: 18),
-            label: const Text('Add to selected'),
-            style: OutlinedButton.styleFrom(minimumSize: const Size(0, 32)),
+          Container(
+            padding: EdgeInsets.symmetric(vertical: s.xs, horizontal: s.xs),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(radius.xs),
+              border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.2)),
+            ),
+            child: Row(
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _selectedAvailableMetricId != null ? addSelectedAvailable : null,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add to selected'),
+                  style: OutlinedButton.styleFrom(minimumSize: const Size(0, 32)),
+                ),
+              ],
+            ),
           ),
         ],
       ],
@@ -1893,16 +1970,28 @@ class _StatisticsSectionState<T> extends State<_StatisticsSection<T>> {
         padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
         decoration: BoxDecoration(
           color: selected
-              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
+              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.55)
               : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(radius.xs),
           border: Border.all(
-            color: selected ? theme.colorScheme.primary.withValues(alpha: 0.5) : theme.colorScheme.outline.withValues(alpha: 0.2),
+            color: selected ? theme.colorScheme.primary : theme.colorScheme.outline.withValues(alpha: 0.2),
+            width: selected ? 2 : 1,
           ),
         ),
         child: Row(
           children: [
-            Expanded(child: Text(metric.label, style: theme.textTheme.bodySmall)),
+            Icon(
+              Icons.bar_chart_outlined,
+              size: 20,
+              color: selected ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
+            ),
+            SizedBox(width: s.sm),
+            Expanded(
+              child: Text(
+                metric.label,
+                style: theme.textTheme.bodySmall?.copyWith(fontWeight: selected ? FontWeight.w500 : null),
+              ),
+            ),
           ],
         ),
       ),
@@ -1915,22 +2004,32 @@ class _StatisticsSectionState<T> extends State<_StatisticsSection<T>> {
       onTap: () => setState(() => _selectedAvailableMetricId = metric.id),
       borderRadius: BorderRadius.circular(radius.xs),
       child: Container(
-        margin: EdgeInsets.only(bottom: s.xxs),
+        margin: EdgeInsets.only(bottom: s.xs),
         padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
         decoration: BoxDecoration(
           color: selected
-              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.4)
-              : theme.colorScheme.surface.withValues(alpha: 0.5),
+              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.55)
+              : theme.colorScheme.surface.withValues(alpha: 0.6),
           borderRadius: BorderRadius.circular(radius.xs),
           border: Border.all(
-            color: selected ? theme.colorScheme.primary.withValues(alpha: 0.4) : theme.colorScheme.outline.withValues(alpha: 0.15),
+            color: selected ? theme.colorScheme.primary : theme.colorScheme.outline.withValues(alpha: 0.2),
+            width: selected ? 2 : 1,
           ),
         ),
         child: Row(
           children: [
-            Icon(Icons.add_circle_outline, size: 18, color: theme.colorScheme.onSurfaceVariant),
-            SizedBox(width: s.xs),
-            Expanded(child: Text(metric.label, style: theme.textTheme.bodySmall)),
+            Icon(
+              Icons.add_circle_outline,
+              size: 20,
+              color: selected ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
+            ),
+            SizedBox(width: s.sm),
+            Expanded(
+              child: Text(
+                metric.label,
+                style: theme.textTheme.bodySmall?.copyWith(fontWeight: selected ? FontWeight.w500 : null),
+              ),
+            ),
           ],
         ),
       ),
