@@ -4,37 +4,9 @@ import 'package:flutter/material.dart';
 
 import '../../icons/ui_icons.dart';
 import '../../theme/tokens.dart';
+import 'bulk_paste_parser.dart';
 import 'unified_filter_descriptor.dart';
 import 'unified_table_column.dart';
-
-/// Parses bulk-pasted text into a list of non-empty, trimmed, deduplicated values.
-/// Supports separators: newline, comma, semicolon, tab. Order of first occurrence is preserved.
-List<String> parseBulkPasteValues(String raw) {
-  if (raw.trim().isEmpty) return [];
-  final parts = raw
-      .split(RegExp(r'[\n,;\t]'))
-      .map((s) => s.trim())
-      .where((s) => s.isNotEmpty)
-      .toList();
-  final seen = <String>{};
-  final result = <String>[];
-  for (final p in parts) {
-    if (seen.add(p)) result.add(p);
-  }
-  return result;
-}
-
-/// Returns (parsedCount, uniqueCount) for bulk paste summary (parsed = non-empty parts, unique = after dedupe).
-(int, int) bulkPasteCounts(String raw) {
-  if (raw.trim().isEmpty) return (0, 0);
-  final parts = raw
-      .split(RegExp(r'[\n,;\t]'))
-      .map((s) => s.trim())
-      .where((s) => s.isNotEmpty)
-      .toList();
-  final unique = parts.toSet().length;
-  return (parts.length, unique);
-}
 
 /// Filter type for dialog mode.
 enum _FilterMode { text, enum_, date }

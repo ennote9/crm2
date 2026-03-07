@@ -30,6 +30,8 @@ class _OrdersWorklistPageState extends State<OrdersWorklistPage> {
   Set<String> _selectedIds = {};
   late TextEditingController _searchController;
   late FocusNode _searchFocusNode;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  late List<SavedTableView> _savedViews;
 
   @override
   void initState() {
@@ -37,6 +39,7 @@ class _OrdersWorklistPageState extends State<OrdersWorklistPage> {
     _controller = UnifiedTableController<DemoOrder>(
       config: createOrdersTableConfig(_openOrderDetails),
     );
+    _savedViews = List<SavedTableView>.from(_controller.config.savedViews);
     _searchController = TextEditingController(text: _controller.state.searchQuery);
     _searchFocusNode = FocusNode();
   }
@@ -92,23 +95,8 @@ class _OrdersWorklistPageState extends State<OrdersWorklistPage> {
     setState(() {});
   }
 
-  void _onFiltersTap() {
-    showUnifiedViewPanel<DemoOrder>(
-      context: context,
-      controller: _controller,
-      fullList: _fullList,
-      onStateChanged: () => setState(() {}),
-      initialTabIndex: 0,
-    );
-  }
-
   void _onViewPanelTap() {
-    showUnifiedViewPanel<DemoOrder>(
-      context: context,
-      controller: _controller,
-      fullList: _fullList,
-      onStateChanged: () => setState(() {}),
-    );
+    _scaffoldKey.currentState?.openEndDrawer();
   }
 
   List<UnifiedFilterChipItem> get _filterChips {
@@ -197,19 +185,31 @@ class _OrdersWorklistPageState extends State<OrdersWorklistPage> {
             },
           ),
         },
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            UnifiedTableToolbar(
-              searchController: _searchController,
-              searchFocusNode: _searchFocusNode,
-              onSearchSubmit: _onSearchSubmit,
-              onSearchClear: _onSearchClear,
-              searchHint: 'Search order no, warehouse, status…',
-              filterChips: _filterChips,
-              onFiltersTap: _onFiltersTap,
-              onViewPanelTap: _onViewPanelTap,
-              onReset: _onReset,
+        child: Scaffold(
+          key: _scaffoldKey,
+          endDrawer: Drawer(
+            width: 480,
+            child: UnifiedViewPanelContent<DemoOrder>(
+              controller: _controller,
+              fullList: _fullList,
+              onStateChanged: () => setState(() {}),
+              savedViews: _savedViews,
+              onSavedViewsChanged: (list) => setState(() => _savedViews = list),
+              onClose: () => Navigator.of(context).pop(),
+            ),
+          ),
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              UnifiedTableToolbar(
+                searchController: _searchController,
+                searchFocusNode: _searchFocusNode,
+                onSearchSubmit: _onSearchSubmit,
+                onSearchClear: _onSearchClear,
+                searchHint: 'Search order no, warehouse, status…',
+                filterChips: _filterChips,
+                onViewPanelTap: _onViewPanelTap,
+                onReset: _onReset,
               extraActions: widget.initialProductSku != null
                   ? Padding(
                       padding: const EdgeInsets.only(left: 8),
@@ -331,6 +331,7 @@ class _OrdersWorklistPageState extends State<OrdersWorklistPage> {
               ),
             ),
           ],
+          ),
         ),
       ),
     );

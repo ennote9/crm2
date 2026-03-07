@@ -1,8 +1,10 @@
 // Table Platform v1 — unified list/worklist infrastructure.
 // New list page: pass config + rows + row open; get toolbar, stats, grid, filters from this layer.
 
+export 'bulk_paste_parser.dart';
 export 'filter_state_summary.dart';
 export 'saved_table_view.dart';
+export 'saved_view_share_mode.dart';
 export 'unified_filter_descriptor.dart';
 export 'unified_column_header_menu.dart';
 export 'unified_stats_metric.dart';

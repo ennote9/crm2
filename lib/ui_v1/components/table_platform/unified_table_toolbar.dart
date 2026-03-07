@@ -19,7 +19,7 @@ class UnifiedTableToolbar extends StatelessWidget {
     required this.onSearchClear,
     this.searchHint = 'Search…',
     required this.filterChips,
-    required this.onFiltersTap,
+    this.onFiltersTap,
     this.viewOptions = const [],
     this.currentViewId,
     this.onViewSelected,
@@ -36,7 +36,8 @@ class UnifiedTableToolbar extends StatelessWidget {
   final VoidCallback onSearchClear;
   final String searchHint;
   final List<UnifiedFilterChipItem> filterChips;
-  final VoidCallback onFiltersTap;
+  /// When [onViewPanelTap] is set, Filters button is hidden (filters are in View panel).
+  final VoidCallback? onFiltersTap;
   final List<({String id, String label})> viewOptions;
   final String? currentViewId;
   final void Function(String? viewId)? onViewSelected;
@@ -124,21 +125,23 @@ class UnifiedTableToolbar extends StatelessWidget {
                     ),
                   ),
                   SizedBox(width: s.sm),
-                  FilledButton.tonal(
-                    onPressed: onFiltersTap,
-                    style: FilledButton.styleFrom(
-                      minimumSize: Size(0, density.buttonHeight),
-                      padding: EdgeInsets.symmetric(horizontal: s.sm),
+                  if (onFiltersTap != null)
+                    FilledButton.tonal(
+                      onPressed: onFiltersTap,
+                      style: FilledButton.styleFrom(
+                        minimumSize: Size(0, density.buttonHeight),
+                        padding: EdgeInsets.symmetric(horizontal: s.sm),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(UiIcons.filterList, size: 20),
+                          SizedBox(width: 6),
+                          Text('Filters'),
+                        ],
+                      ),
                     ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(UiIcons.filterList, size: 20),
-                        SizedBox(width: 6),
-                        Text('Filters'),
-                      ],
-                    ),
-                  ),
+                  if (onFiltersTap != null) SizedBox(width: s.sm),
                   if (onViewPanelTap != null) ...[
                     SizedBox(width: s.sm),
                     FilledButton.tonal(
