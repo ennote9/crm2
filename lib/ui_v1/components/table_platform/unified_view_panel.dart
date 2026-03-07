@@ -364,41 +364,7 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
         Expanded(
           child: SingleChildScrollView(
             padding: EdgeInsets.symmetric(horizontal: s.md, vertical: s.sm),
-            child: IndexedStack(
-              index: _selectedTabIndex,
-              sizing: StackFit.loose,
-              children: [
-                _FiltersSection<T>(
-                  controller: widget.controller,
-                  fullList: widget.fullList,
-                  onStateChanged: () {
-                    widget.onStateChanged();
-                    setState(() {});
-                  },
-                ),
-                _ColumnsSection<T>(
-                  controller: widget.controller,
-                  onStateChanged: () {
-                    widget.onStateChanged();
-                    setState(() {});
-                  },
-                ),
-                _SortSection<T>(
-                  controller: widget.controller,
-                  onStateChanged: () {
-                    widget.onStateChanged();
-                    setState(() {});
-                  },
-                ),
-                _StatisticsSection<T>(
-                  controller: widget.controller,
-                  onStateChanged: () {
-                    widget.onStateChanged();
-                    setState(() {});
-                  },
-                ),
-              ],
-            ),
+            child: _buildCurrentTabContent(),
           ),
         ),
         Container(
@@ -441,6 +407,43 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
       ),
       child: Text(label, style: theme.textTheme.labelMedium),
     );
+  }
+
+  void _onSectionStateChanged() {
+    widget.onStateChanged();
+    setState(() {});
+  }
+
+  Widget _buildCurrentTabContent() {
+    switch (_selectedTabIndex) {
+      case 0:
+        return _FiltersSection<T>(
+          controller: widget.controller,
+          fullList: widget.fullList,
+          onStateChanged: _onSectionStateChanged,
+        );
+      case 1:
+        return _ColumnsSection<T>(
+          controller: widget.controller,
+          onStateChanged: _onSectionStateChanged,
+        );
+      case 2:
+        return _SortSection<T>(
+          controller: widget.controller,
+          onStateChanged: _onSectionStateChanged,
+        );
+      case 3:
+        return _StatisticsSection<T>(
+          controller: widget.controller,
+          onStateChanged: _onSectionStateChanged,
+        );
+      default:
+        return _FiltersSection<T>(
+          controller: widget.controller,
+          fullList: widget.fullList,
+          onStateChanged: _onSectionStateChanged,
+        );
+    }
   }
 }
 
