@@ -67,10 +67,11 @@ const List<String> kKeyTimestampCodes = [
   'closed',
 ];
 
+/// Human-readable title for timeline; raw [eventCode] stays internal.
 String eventCodeToLabel(String eventCode) {
   final code = eventCode.toLowerCase();
   switch (code) {
-    case 'order_created': return 'Created';
+    case 'order_created': return 'Order created';
     case 'released': return 'Released';
     case 'allocated': return 'Allocated';
     case 'pick_started': return 'Pick started';
@@ -83,6 +84,17 @@ String eventCodeToLabel(String eventCode) {
     case 'hold_resolved': return 'Hold resolved';
     case 'shortage_detected': return 'Shortage detected';
     case 'export_sent': return 'Export sent';
+    case 'hu_sealed': return 'HU sealed';
+    case 'hu_label_printed': return 'HU label printed';
+    case 'hu_unpacked': return 'HU unpacked';
+    case 'pick_task_started': return 'Pick task started';
+    case 'pick_task_completed': return 'Pick task completed';
+    case 'pick_task_exception': return 'Pick exception';
+    case 'reservation_created': return 'Reservation created';
+    case 'picking_applied': return 'Picking applied';
+    case 'packing_applied': return 'Packing applied';
+    case 'shipment_posted': return 'Shipment posted';
+    case 'reason_code_set': return 'Reason code set';
     default: return eventCode;
   }
 }

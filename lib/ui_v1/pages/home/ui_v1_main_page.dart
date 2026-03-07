@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 
 import '../../app_shell/app_shell.dart';
 import '../../utils/nav_item.dart';
+import '../movements/movements_worklist_page.dart';
+import '../cycle_count/cycle_count_worklist_page.dart';
+import '../replenishment/replenishment_worklist_page.dart';
 import '../orders/orders_worklist_page.dart';
 import '../packing/packing_worklist_page.dart';
 import '../picking/picking_worklist_page.dart';
@@ -50,6 +53,12 @@ class _UiV1MainPageState extends State<UiV1MainPage> {
         return const PickingWorklistPage();
       case UiV1NavItem.packing:
         return const PackingWorklistPage();
+      case UiV1NavItem.movements:
+        return const MovementsWorklistPage();
+      case UiV1NavItem.replenishment:
+        return const ReplenishmentWorklistPage();
+      case UiV1NavItem.cycleCount:
+        return const CycleCountWorklistPage();
       case UiV1NavItem.products:
         return const ProductsWorklistPage();
     }

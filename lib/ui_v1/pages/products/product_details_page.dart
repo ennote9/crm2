@@ -3,7 +3,10 @@
 import 'package:flutter/material.dart';
 
 import '../../components/chips/index.dart';
+import '../../components/section_card.dart';
+import '../../components/icon_widget.dart';
 import '../../demo_data/demo_data.dart';
+import '../../icons/ui_icons.dart';
 import '../../theme/tokens.dart';
 import '../order_details/order_details_page.dart';
 import '../orders/orders_worklist_page.dart';
@@ -41,7 +44,7 @@ class ProductDetailsPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const UiV1Icon(icon: UiIcons.arrowBack),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(product.sku, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleLarge),
@@ -53,13 +56,21 @@ class ProductDetailsPage extends StatelessWidget {
           children: [
             _ProductHeader(product: product, theme: theme, s: s),
             SizedBox(height: s.lg),
-            _Section(title: 'Summary', child: _SummarySection(product: product, theme: theme, s: s)),
+            UiV1SectionCard(title: 'Summary', child: _SummarySection(product: product, theme: theme, s: s)),
             SizedBox(height: s.md),
-            _Section(title: 'Traceability', child: _TraceabilitySection(product: product, theme: theme, s: s)),
+            UiV1SectionCard(title: 'Traceability', child: _TraceabilitySection(product: product, theme: theme, s: s)),
             SizedBox(height: s.md),
-            _Section(title: 'Packaging & Dimensions', child: _PackagingSection(product: product, theme: theme, s: s)),
+            UiV1SectionCard(title: 'Packaging & Dimensions', child: _PackagingSection(product: product, theme: theme, s: s)),
             SizedBox(height: s.md),
-            _Section(title: 'Usage in operations', child: _UsageSection(product: product, theme: theme, s: s, context: context)),
+            UiV1SectionCard(title: 'Stock', child: _StockSection(product: product, theme: theme, s: s)),
+            SizedBox(height: s.md),
+            UiV1SectionCard(title: 'Stock by warehouse', child: _StockByWarehouseSection(product: product, theme: theme, s: s)),
+            SizedBox(height: s.md),
+            UiV1SectionCard(title: 'Stock by location', child: _StockByLocationSection(product: product, theme: theme, s: s)),
+            SizedBox(height: s.md),
+            UiV1SectionCard(title: 'Lots / batches', child: _LotsSection(product: product, theme: theme, s: s)),
+            SizedBox(height: s.md),
+            UiV1SectionCard(title: 'Usage in operations', child: _UsageSection(product: product, theme: theme, s: s, context: context)),
           ],
         ),
       ),
@@ -83,12 +94,14 @@ class _ProductHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = Theme.of(context).brightness == Brightness.dark ? UiV1Tokens.dark : UiV1Tokens.light;
+    final r = UiV1RadiusTokens.standard;
     return Container(
       padding: EdgeInsets.all(s.md),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(r.lg),
+        border: Border.all(color: tokens.colors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -127,35 +140,6 @@ class _ProductHeader extends StatelessWidget {
   }
 }
 
-class _Section extends StatelessWidget {
-  const _Section({required this.title, required this.child});
-  final String title;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final tokens = Theme.of(context).brightness == Brightness.dark ? UiV1Tokens.dark : UiV1Tokens.light;
-    final s = tokens.spacing;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          title,
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-          overflow: TextOverflow.ellipsis,
-          maxLines: 1,
-        ),
-        SizedBox(height: s.xs),
-        child,
-      ],
-    );
-  }
-}
-
 class _SummarySection extends StatelessWidget {
   const _SummarySection({required this.product, required this.theme, required this.s});
   final DemoProduct product;
@@ -187,46 +171,39 @@ class _TraceabilitySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(s.sm),
-      decoration: BoxDecoration(
-        border: Border.all(color: theme.colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          spacing: s.xs,
+          runSpacing: s.xs,
+          children: [
+            if (product.requiresLotTracking)
+              _CompactChip(label: 'Lot-tracked', theme: theme),
+            if (product.requiresSerialTracking)
+              _CompactChip(label: 'Serial-tracked', theme: theme),
+            if (product.requiresExpiryTracking)
+              _CompactChip(label: 'Expiry-tracked', theme: theme),
+          ],
+        ),
+        if (product.requiresExpiryTracking && (product.shelfLifeDays != null || product.bestBeforeDays != null)) ...[
+          SizedBox(height: s.xs),
           Wrap(
-            spacing: s.xs,
+            spacing: s.md,
             runSpacing: s.xs,
             children: [
-              if (product.requiresLotTracking)
-                _CompactChip(label: 'Lot-tracked', theme: theme),
-              if (product.requiresSerialTracking)
-                _CompactChip(label: 'Serial-tracked', theme: theme),
-              if (product.requiresExpiryTracking)
-                _CompactChip(label: 'Expiry-tracked', theme: theme),
+              if (product.shelfLifeDays != null)
+                Text('Shelf life: ${product.shelfLifeDays} days', style: theme.textTheme.bodySmall, overflow: TextOverflow.ellipsis, maxLines: 1),
+              if (product.bestBeforeDays != null)
+                Text('Best before: ${product.bestBeforeDays} days', style: theme.textTheme.bodySmall, overflow: TextOverflow.ellipsis, maxLines: 1),
             ],
           ),
-          if (product.requiresExpiryTracking && (product.shelfLifeDays != null || product.bestBeforeDays != null)) ...[
-            SizedBox(height: s.xs),
-            Wrap(
-              spacing: s.md,
-              runSpacing: s.xs,
-              children: [
-                if (product.shelfLifeDays != null)
-                  Text('Shelf life: ${product.shelfLifeDays} days', style: theme.textTheme.bodySmall, overflow: TextOverflow.ellipsis, maxLines: 1),
-                if (product.bestBeforeDays != null)
-                  Text('Best before: ${product.bestBeforeDays} days', style: theme.textTheme.bodySmall, overflow: TextOverflow.ellipsis, maxLines: 1),
-              ],
-            ),
-          ],
-          SizedBox(height: s.xs),
-          _KeyValueRow(theme: theme, label: 'Barcode (primary)', value: product.barcodePrimary),
-          if (product.barcodeSecondary != null && product.barcodeSecondary!.isNotEmpty)
-            _KeyValueRow(theme: theme, label: 'Barcode (secondary)', value: product.barcodeSecondary!.join(', ')),
         ],
-      ),
+        SizedBox(height: s.xs),
+        _KeyValueRow(theme: theme, label: 'Barcode (primary)', value: product.barcodePrimary),
+        if (product.barcodeSecondary != null && product.barcodeSecondary!.isNotEmpty)
+          _KeyValueRow(theme: theme, label: 'Barcode (secondary)', value: product.barcodeSecondary!.join(', ')),
+      ],
     );
   }
 }
@@ -303,17 +280,11 @@ class _TwoColumnGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const labelWidth = 120.0;
-    return Container(
-      padding: EdgeInsets.all(s.sm),
-      decoration: BoxDecoration(
-        border: Border.all(color: theme.colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final left = entries.take((entries.length + 1) ~/ 2).toList();
-          final right = entries.skip((entries.length + 1) ~/ 2).toList();
-          return Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final left = entries.take((entries.length + 1) ~/ 2).toList();
+        final right = entries.skip((entries.length + 1) ~/ 2).toList();
+        return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
@@ -350,7 +321,296 @@ class _TwoColumnGrid extends StatelessWidget {
             ],
           );
         },
+    );
+  }
+}
+
+class _StockSection extends StatelessWidget {
+  const _StockSection({required this.product, required this.theme, required this.s});
+  final DemoProduct product;
+  final ThemeData theme;
+  final UiV1SpacingTokens s;
+
+  @override
+  Widget build(BuildContext context) {
+    final records = demoRepository.getInventoryBySku(product.sku);
+    final onHand = records.fold<int>(0, (s, r) => s + r.onHandQty);
+    final available = records.fold<int>(0, (s, r) => s + r.availableQty);
+    final reserved = records.fold<int>(0, (s, r) => s + r.reservedQty);
+    final picked = records.fold<int>(0, (s, r) => s + r.pickedQty);
+    final packed = records.fold<int>(0, (s, r) => s + r.packedQty);
+    final shipped = records.fold<int>(0, (s, r) => s + r.shippedQty);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _StockRow(label: 'On hand', value: onHand, theme: theme),
+        _StockRow(label: 'Available', value: available, theme: theme),
+        _StockRow(label: 'Reserved', value: reserved, theme: theme),
+        _StockRow(label: 'Picked', value: picked, theme: theme),
+        _StockRow(label: 'Packed', value: packed, theme: theme),
+        _StockRow(label: 'Shipped', value: shipped, theme: theme),
+      ],
+    );
+  }
+}
+
+class _StockRow extends StatelessWidget {
+  const _StockRow({required this.label, required this.value, required this.theme});
+  final String label;
+  final int value;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          SizedBox(width: 90, child: Text(label, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant), overflow: TextOverflow.ellipsis)),
+          Text('$value', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
+        ],
       ),
+    );
+  }
+}
+
+/// Compact table: one row per warehouse (aggregated from location buckets). Totals match Stock + location detail.
+class _StockByWarehouseSection extends StatelessWidget {
+  const _StockByWarehouseSection({required this.product, required this.theme, required this.s});
+  final DemoProduct product;
+  final ThemeData theme;
+  final UiV1SpacingTokens s;
+
+  static const double _colWidth = 56;
+  static const double _whWidth = 64;
+
+  @override
+  Widget build(BuildContext context) {
+    final records = demoRepository.getInventoryBySku(product.sku);
+    final byWh = <String, ({int onHand, int available, int reserved, int picked, int packed, int shipped})>{};
+    for (final r in records) {
+      final cur = byWh[r.warehouse];
+      if (cur == null) {
+        byWh[r.warehouse] = (onHand: r.onHandQty, available: r.availableQty, reserved: r.reservedQty, picked: r.pickedQty, packed: r.packedQty, shipped: r.shippedQty);
+      } else {
+        byWh[r.warehouse] = (onHand: cur.onHand + r.onHandQty, available: cur.available + r.availableQty, reserved: cur.reserved + r.reservedQty, picked: cur.picked + r.pickedQty, packed: cur.packed + r.packedQty, shipped: cur.shipped + r.shippedQty);
+      }
+    }
+    final sortedWh = byWh.keys.toList()..sort();
+    final labelStyle = theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant);
+    final cellStyle = theme.textTheme.bodySmall;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Table(
+          columnWidths: const {
+            0: FixedColumnWidth(_whWidth),
+            1: FixedColumnWidth(_colWidth),
+            2: FixedColumnWidth(_colWidth),
+            3: FixedColumnWidth(_colWidth),
+            4: FixedColumnWidth(_colWidth),
+            5: FixedColumnWidth(_colWidth),
+            6: FixedColumnWidth(_colWidth),
+          },
+          defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+          children: [
+            TableRow(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              ),
+              children: [
+                _cell('Warehouse', labelStyle),
+                _cell('On hand', labelStyle),
+                _cell('Available', labelStyle),
+                _cell('Reserved', labelStyle),
+                _cell('Picked', labelStyle),
+                _cell('Packed', labelStyle),
+                _cell('Shipped', labelStyle),
+              ],
+            ),
+            for (final wh in sortedWh)
+              TableRow(
+                children: [
+                  _cell(wh, cellStyle),
+                  _cell('${byWh[wh]!.onHand}', cellStyle),
+                  _cell('${byWh[wh]!.available}', cellStyle),
+                  _cell('${byWh[wh]!.reserved}', cellStyle),
+                  _cell('${byWh[wh]!.picked}', cellStyle),
+                  _cell('${byWh[wh]!.packed}', cellStyle),
+                  _cell('${byWh[wh]!.shipped}', cellStyle),
+                ],
+              ),
+          ],
+        ),
+        if (sortedWh.isEmpty)
+          Padding(
+            padding: EdgeInsets.only(top: s.xs),
+            child: Text('No warehouse records', style: labelStyle),
+          ),
+      ],
+    );
+  }
+
+  Widget _cell(String text, TextStyle? style) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      child: Text(text, style: style, overflow: TextOverflow.ellipsis, maxLines: 1),
+    );
+  }
+}
+
+/// One row per location bucket: Warehouse, Location, On hand, Available, Reserved, Picked, Packed, Shipped.
+class _StockByLocationSection extends StatelessWidget {
+  const _StockByLocationSection({required this.product, required this.theme, required this.s});
+  final DemoProduct product;
+  final ThemeData theme;
+  final UiV1SpacingTokens s;
+
+  static const double _colWidth = 52;
+  static const double _whWidth = 56;
+  static const double _locWidth = 72;
+
+  @override
+  Widget build(BuildContext context) {
+    final records = demoRepository.getInventoryBySku(product.sku);
+    final sorted = List<DemoInventoryRecord>.from(records)
+      ..sort((a, b) => a.warehouse.compareTo(b.warehouse) != 0 ? a.warehouse.compareTo(b.warehouse) : a.location.compareTo(b.location));
+    final labelStyle = theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant);
+    final cellStyle = theme.textTheme.bodySmall;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Table(
+          columnWidths: const {
+            0: FixedColumnWidth(_whWidth),
+            1: FixedColumnWidth(_locWidth),
+            2: FixedColumnWidth(_colWidth),
+            3: FixedColumnWidth(_colWidth),
+            4: FixedColumnWidth(_colWidth),
+            5: FixedColumnWidth(_colWidth),
+            6: FixedColumnWidth(_colWidth),
+            7: FixedColumnWidth(_colWidth),
+          },
+          defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+          children: [
+            TableRow(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              ),
+              children: [
+                _cell('Warehouse', labelStyle),
+                _cell('Location', labelStyle),
+                _cell('On hand', labelStyle),
+                _cell('Available', labelStyle),
+                _cell('Reserved', labelStyle),
+                _cell('Picked', labelStyle),
+                _cell('Packed', labelStyle),
+                _cell('Shipped', labelStyle),
+              ],
+            ),
+            for (final r in sorted)
+              TableRow(
+                children: [
+                  _cell(r.warehouse, cellStyle),
+                  _cell(r.location, cellStyle),
+                  _cell('${r.onHandQty}', cellStyle),
+                  _cell('${r.availableQty}', cellStyle),
+                  _cell('${r.reservedQty}', cellStyle),
+                  _cell('${r.pickedQty}', cellStyle),
+                  _cell('${r.packedQty}', cellStyle),
+                  _cell('${r.shippedQty}', cellStyle),
+                ],
+              ),
+          ],
+        ),
+        if (sorted.isEmpty)
+          Padding(
+            padding: EdgeInsets.only(top: s.xs),
+            child: Text('No location records', style: labelStyle),
+          ),
+      ],
+    );
+  }
+
+  Widget _cell(String text, TextStyle? style) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      child: Text(text, style: style, overflow: TextOverflow.ellipsis, maxLines: 1),
+    );
+  }
+}
+
+/// Lots/batches for lot-tracked SKU; otherwise "Not lot-tracked."
+class _LotsSection extends StatelessWidget {
+  const _LotsSection({required this.product, required this.theme, required this.s});
+  final DemoProduct product;
+  final ThemeData theme;
+  final UiV1SpacingTokens s;
+
+  static const double _colWidth = 56;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!product.requiresLotTracking) {
+      return Text('Not lot-tracked.', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant));
+    }
+    final records = demoRepository.getInventoryBySku(product.sku).where((r) => r.lot != null && r.lot!.isNotEmpty).toList();
+    records.sort((a, b) => (a.lot ?? '').compareTo(b.lot ?? ''));
+    final labelStyle = theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant);
+    final cellStyle = theme.textTheme.bodySmall;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Table(
+          columnWidths: const {
+            0: FixedColumnWidth(80),
+            1: FixedColumnWidth(56),
+            2: FixedColumnWidth(72),
+            3: FixedColumnWidth(_colWidth),
+            4: FixedColumnWidth(88),
+          },
+          defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+          children: [
+            TableRow(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              ),
+              children: [
+                _cell('Lot', labelStyle),
+                _cell('Warehouse', labelStyle),
+                _cell('Location', labelStyle),
+                _cell('Available', labelStyle),
+                _cell('Expiry', labelStyle),
+              ],
+            ),
+            for (final r in records)
+              TableRow(
+                children: [
+                  _cell(r.lot ?? '—', cellStyle),
+                  _cell(r.warehouse, cellStyle),
+                  _cell(r.location, cellStyle),
+                  _cell('${r.availableQty}', cellStyle),
+                  _cell(r.expiryDate ?? '—', cellStyle),
+                ],
+              ),
+          ],
+        ),
+        if (records.isEmpty)
+          Padding(
+            padding: EdgeInsets.only(top: s.xs),
+            child: Text('No lot records', style: labelStyle),
+          ),
+      ],
+    );
+  }
+
+  Widget _cell(String text, TextStyle? style) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      child: Text(text, style: style, overflow: TextOverflow.ellipsis, maxLines: 1),
     );
   }
 }
@@ -371,41 +631,35 @@ class _UsageSection extends StatelessWidget {
     final allPacking = demoRepository.getAllPackingTasks();
     final exceptionCount = allPacking.where((t) => t.sku == product.sku && t.status == 'Exception').length;
 
-    return Container(
-      padding: EdgeInsets.all(s.sm),
-      decoration: BoxDecoration(
-        border: Border.all(color: theme.colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _UsageTile(
-            label: 'Recent Orders',
-            count: orders.length,
-            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => OrdersWorklistPage(initialProductSku: product.sku))),
-            theme: theme,
-            s: s,
-          ),
-          _UsageTile(
-            label: 'Open Pick Tasks',
-            count: openPickCount,
-            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => PickingWorklistPage(initialSearch: product.sku))),
-            theme: theme,
-            s: s,
-          ),
-          _UsageTile(
-            label: 'Packed HU count',
-            count: huList.length,
-            onTap: () {
-              if (huList.isNotEmpty) {
-                final first = huList.first;
-                final bundle = demoRepository.getOrderDetails(first.orderNo);
-                Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => OrderDetailsPage(payload: OrderDetailsPayload(orderNo: bundle.order.orderNo, status: bundle.order.status, warehouse: bundle.order.warehouse, created: bundle.order.createdAt, baseStatus: bundle.order.status == 'On Hold' ? (bundle.order.baseStatus ?? 'Allocated') : null, initialTabIndex: 2))));
-              } else {
-                Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => OrdersWorklistPage(initialProductSku: product.sku)));
-              }
-            },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _UsageTile(
+          label: 'Recent Orders',
+          count: orders.length,
+          onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => OrdersWorklistPage(initialProductSku: product.sku))),
+          theme: theme,
+          s: s,
+        ),
+        _UsageTile(
+          label: 'Open Pick Tasks',
+          count: openPickCount,
+          onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => PickingWorklistPage(initialSearch: product.sku))),
+          theme: theme,
+          s: s,
+        ),
+        _UsageTile(
+          label: 'Packed HU count',
+          count: huList.length,
+          onTap: () {
+            if (huList.isNotEmpty) {
+              final first = huList.first;
+              final bundle = demoRepository.getOrderDetails(first.orderNo);
+              Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => OrderDetailsPage(payload: OrderDetailsPayload(orderNo: bundle.order.orderNo, status: bundle.order.status, warehouse: bundle.order.warehouse, created: bundle.order.createdAt, baseStatus: bundle.order.status == 'On Hold' ? (bundle.order.baseStatus ?? 'Allocated') : null, initialTabIndex: 2))));
+            } else {
+              Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => OrdersWorklistPage(initialProductSku: product.sku)));
+            }
+          },
             theme: theme,
             s: s,
           ),
@@ -417,7 +671,6 @@ class _UsageSection extends StatelessWidget {
             s: s,
           ),
         ],
-      ),
     );
   }
 }

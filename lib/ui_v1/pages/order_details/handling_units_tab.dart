@@ -5,11 +5,13 @@ import 'package:flutter/services.dart';
 
 import '../../components/chips/index.dart';
 import '../../components/data_grid/index.dart';
+import '../../components/icon_widget.dart';
 import '../../demo_data/demo_data.dart';
 import '../../icons/ui_icons.dart';
 import '../../theme/density.dart';
 import '../../theme/tokens.dart';
 import '../products/sku_link_text.dart';
+import 'document_preview_dialog.dart';
 
 /// HU status: Open / Packed / Shipped
 const List<String> kHuStatuses = ['Open', 'Packed', 'Shipped'];
@@ -31,10 +33,11 @@ const String kEHuNothingToUnpack = 'E_HU_003';
 
 /// Handling Units tab: filters + search + dense list. State preserved when switching tabs.
 class HandlingUnitsTab extends StatefulWidget {
-  const HandlingUnitsTab({super.key, this.orderNo, this.hus});
+  const HandlingUnitsTab({super.key, this.orderNo, this.hus, this.onOrderDataChanged});
 
   final String? orderNo;
   final List<DemoHandlingUnit>? hus;
+  final VoidCallback? onOrderDataChanged;
 
   @override
   State<HandlingUnitsTab> createState() => _HandlingUnitsTabState();
@@ -107,9 +110,9 @@ class _HandlingUnitsTabState extends State<HandlingUnitsTab> with AutomaticKeepA
   void _openHuDetail(DemoHandlingUnit hu) {
     final width = MediaQuery.sizeOf(context).width;
     if (width >= 600) {
-      _showHuDetailDrawer(context, hu);
+      _showHuDetailDrawer(context, hu, widget.orderNo, widget.onOrderDataChanged);
     } else {
-      _showHuDetailBottomSheet(context, hu);
+      _showHuDetailBottomSheet(context, hu, widget.orderNo, widget.onOrderDataChanged);
     }
   }
 
@@ -210,7 +213,7 @@ class _HandlingUnitsTabState extends State<HandlingUnitsTab> with AutomaticKeepA
 
 class _ClearHuSearchIntent extends Intent {}
 
-void _showHuDetailDrawer(BuildContext context, DemoHandlingUnit hu) {
+void _showHuDetailDrawer(BuildContext context, DemoHandlingUnit hu, String? orderNo, VoidCallback? onOrderDataChanged) {
   final theme = Theme.of(context);
   final s = UiV1SpacingTokens.standard;
   final density = UiV1DensityTokens.dense;
@@ -250,11 +253,11 @@ void _showHuDetailDrawer(BuildContext context, DemoHandlingUnit hu) {
                           maxLines: 1,
                         ),
                       ),
-                      IconButton(icon: const Icon(UiIcons.close), onPressed: () => Navigator.of(context).pop(), tooltip: 'Close'),
+                      IconButton(icon: const UiV1Icon(icon: UiIcons.close), onPressed: () => Navigator.of(context).pop(), tooltip: 'Close'),
                     ],
                   ),
                 ),
-                Divider(height: 1, color: theme.colorScheme.outlineVariant),
+                Divider(height: 1, color: (Theme.of(context).brightness == Brightness.dark ? UiV1Tokens.dark : UiV1Tokens.light).colors.border),
                 Expanded(
                   child: SingleChildScrollView(
                     padding: EdgeInsets.all(s.md),
@@ -264,7 +267,7 @@ void _showHuDetailDrawer(BuildContext context, DemoHandlingUnit hu) {
                 SizedBox(height: s.md),
                 Padding(
                   padding: EdgeInsets.fromLTRB(s.md, 0, s.md, s.md),
-                  child: _HuDetailActions(hu: hu, density: density),
+                  child: _HuDetailActions(hu: hu, density: density, orderNo: orderNo, onOrderDataChanged: onOrderDataChanged),
                 ),
               ],
             ),
@@ -275,7 +278,7 @@ void _showHuDetailDrawer(BuildContext context, DemoHandlingUnit hu) {
   );
 }
 
-void _showHuDetailBottomSheet(BuildContext context, DemoHandlingUnit hu) {
+void _showHuDetailBottomSheet(BuildContext context, DemoHandlingUnit hu, String? orderNo, VoidCallback? onOrderDataChanged) {
   final theme = Theme.of(context);
   final s = UiV1SpacingTokens.standard;
   final density = UiV1DensityTokens.dense;
@@ -298,11 +301,11 @@ void _showHuDetailBottomSheet(BuildContext context, DemoHandlingUnit hu) {
                 Expanded(
                   child: Text(hu.huNo, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis, maxLines: 1),
                 ),
-                IconButton(icon: const Icon(UiIcons.close), onPressed: () => Navigator.of(context).pop(), tooltip: 'Close'),
+                IconButton(icon: const UiV1Icon(icon: UiIcons.close), onPressed: () => Navigator.of(context).pop(), tooltip: 'Close'),
               ],
             ),
           ),
-          Divider(height: 1, color: theme.colorScheme.outlineVariant),
+          Divider(height: 1, color: (Theme.of(context).brightness == Brightness.dark ? UiV1Tokens.dark : UiV1Tokens.light).colors.border),
           Flexible(
             child: ListView(
               controller: scrollController,
@@ -313,7 +316,7 @@ void _showHuDetailBottomSheet(BuildContext context, DemoHandlingUnit hu) {
           SizedBox(height: s.md),
           Padding(
             padding: EdgeInsets.fromLTRB(s.md, 0, s.md, s.md),
-            child: _HuDetailActions(hu: hu, density: density),
+            child: _HuDetailActions(hu: hu, density: density, orderNo: orderNo, onOrderDataChanged: onOrderDataChanged),
           ),
         ],
       ),
@@ -352,8 +355,8 @@ class _HuDetailContent extends StatelessWidget {
         SizedBox(height: s.xxs),
         Container(
           decoration: BoxDecoration(
-            border: Border.all(color: theme.colorScheme.outlineVariant),
-            borderRadius: BorderRadius.circular(UiV1RadiusTokens.standard.sm),
+            border: Border.all(color: (Theme.of(context).brightness == Brightness.dark ? UiV1Tokens.dark : UiV1Tokens.light).colors.border),
+            borderRadius: BorderRadius.circular(UiV1RadiusTokens.standard.md),
           ),
           child: Column(
             children: [
@@ -400,35 +403,91 @@ class _HuDetailContent extends StatelessWidget {
 }
 
 class _HuDetailActions extends StatelessWidget {
-  const _HuDetailActions({required this.hu, required this.density});
+  const _HuDetailActions({
+    required this.hu,
+    required this.density,
+    this.orderNo,
+    this.onOrderDataChanged,
+  });
   final DemoHandlingUnit hu;
   final UiV1DensityTokens density;
+  final String? orderNo;
+  final VoidCallback? onOrderDataChanged;
+
+  void _runHuAction(BuildContext context, String actionId, {String? sscc}) {
+    if (orderNo == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Order context missing')),
+      );
+      return;
+    }
+    if (!canExecuteHuAction()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Недостаточно прав для выполнения действия.')),
+      );
+      return;
+    }
+    final ok = outboundWorkflowEngine.executeHuAction(orderNo!, hu.id, actionId, sscc: sscc);
+    onOrderDataChanged?.call();
+    if (context.mounted) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(ok ? 'HU updated' : 'Action not allowed')),
+      );
+    }
+  }
+
+  void _openHuLabelPreview(BuildContext context) {
+    if (orderNo == null) return;
+    try {
+      final preview = demoRepository.buildHuLabelPreview(orderNo!, hu.id);
+      showHuLabelPreviewDialog(
+        context,
+        preview: preview,
+        onPrint: () {
+          outboundWorkflowEngine.executeHuAction(orderNo!, hu.id, 'print_label');
+          onOrderDataChanged?.call();
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Label printed')));
+          }
+        },
+      );
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Unable to load preview.')));
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final s = UiV1SpacingTokens.standard;
+    final hasPermission = canExecuteHuAction();
+    final canSeal = hasPermission && orderNo != null && outboundWorkflowEngine.canExecuteHuAction(orderNo!, hu.id, 'seal_hu');
+    final canPrintLabel = hasPermission && orderNo != null && outboundWorkflowEngine.canExecuteHuAction(orderNo!, hu.id, 'print_label');
+    final canUnpack = hasPermission && orderNo != null && outboundWorkflowEngine.canExecuteHuAction(orderNo!, hu.id, 'unpack_hu');
     final isShipped = hu.status == 'Shipped';
     final isOpen = hu.status == 'Open';
-    final s = UiV1SpacingTokens.standard;
     return Wrap(
       spacing: s.xs,
       runSpacing: s.xs,
       children: [
         _HuActionButton(
           label: 'Seal HU',
-          onPressed: isShipped ? null : () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Seal HU (placeholder)'))),
-          disabledReason: isShipped ? (kEHuShipped, 'HU уже отгружен.') : (isOpen ? (kEHuNotPacked, 'Сначала упакуйте HU.') : null),
+          onPressed: isShipped ? null : (canSeal ? () => _runHuAction(context, 'seal_hu') : () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Seal is not available for this HU in current state.')))),
+          disabledReason: isShipped ? (kEHuShipped, 'HU already shipped.') : (isOpen ? (kEHuNotPacked, 'Pack HU before sealing.') : null),
           density: density,
         ),
         _HuActionButton(
           label: 'Print label',
-          onPressed: isOpen ? null : () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Print label (placeholder)'))),
-          disabledReason: isOpen ? (kEHuNotPacked, 'Нет SSCC для печати.') : null,
+          onPressed: isOpen ? null : (canPrintLabel ? () => _openHuLabelPreview(context) : () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Print label is not available for this HU.')))),
+          disabledReason: isOpen ? (kEHuNotPacked, 'HU must be packed before printing label.') : null,
           density: density,
         ),
         _HuActionButton(
           label: 'Unpack',
-          onPressed: isShipped ? null : (isOpen ? null : () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Unpack (placeholder)')))),
-          disabledReason: isShipped ? (kEHuShipped, 'HU уже отгружен.') : (isOpen ? (kEHuNothingToUnpack, 'Нет содержимого для распаковки.') : null),
+          onPressed: isShipped ? null : (isOpen ? null : (canUnpack ? () => _runHuAction(context, 'unpack_hu') : () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Unpack is not available for this HU.'))))),
+          disabledReason: isShipped ? (kEHuShipped, 'HU already shipped.') : (isOpen ? (kEHuNothingToUnpack, 'Nothing to unpack.') : null),
           density: density,
         ),
       ],
@@ -470,7 +529,7 @@ class _HuActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     if (disabledReason != null) {
       return Tooltip(
-        message: '${disabledReason!.$1}: ${disabledReason!.$2}',
+        message: disabledReason!.$2,
         child: FilledButton.tonal(
           onPressed: null,
           style: FilledButton.styleFrom(minimumSize: Size(0, density.buttonHeight)),

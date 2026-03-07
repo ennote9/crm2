@@ -23,11 +23,13 @@ class OrderLinesTab extends StatefulWidget {
     this.orderNo,
     this.lines,
     this.onLinesChanged,
+    this.onOrderDataChanged,
   });
 
   final String? orderNo;
   final List<DemoOrderLine>? lines;
   final void Function(List<DemoOrderLine>)? onLinesChanged;
+  final VoidCallback? onOrderDataChanged;
 
   @override
   State<OrderLinesTab> createState() => _OrderLinesTabState();
@@ -55,14 +57,6 @@ class _OrderLinesTabState extends State<OrderLinesTab> {
 
   List<DemoOrderLine> get _effectiveLines => widget.lines ?? _lines;
 
-  void _setLines(List<DemoOrderLine> next) {
-    if (widget.onLinesChanged != null) {
-      widget.onLinesChanged!(next);
-    } else {
-      setState(() => _lines = next);
-    }
-  }
-
   List<UiV1DataGridColumn<DemoOrderLine>> _columns(BuildContext context) {
     return [
       UiV1DataGridColumn<DemoOrderLine>(
@@ -88,6 +82,12 @@ class _OrderLinesTabState extends State<OrderLinesTab> {
         label: 'Reserved',
         flex: 1,
         cellBuilder: (r) => Text('${r.reservedQty}', overflow: TextOverflow.ellipsis, maxLines: 1),
+      ),
+      UiV1DataGridColumn<DemoOrderLine>(
+        id: 'pickFrom',
+        label: 'Pick from',
+        flex: 1,
+        cellBuilder: (r) => Text(r.reservedFromLocation ?? '—', overflow: TextOverflow.ellipsis, maxLines: 1),
       ),
       UiV1DataGridColumn<DemoOrderLine>(
         id: 'picked',
@@ -120,7 +120,9 @@ class _OrderLinesTabState extends State<OrderLinesTab> {
                   child: Text('${r.shortQty}', overflow: TextOverflow.ellipsis, maxLines: 1),
                 ),
                 const SizedBox(width: 4),
-                UiV1StatusChip(label: 'Shortage', variant: UiV1StatusVariant.warning),
+                Flexible(
+                  child: UiV1StatusChip(label: 'Shortage', variant: UiV1StatusVariant.warning),
+                ),
               ],
             );
             final tooltip = r.reasonCode != null ? '${r.shortQty} — ${r.reasonCode}' : null;
@@ -135,7 +137,7 @@ class _OrderLinesTabState extends State<OrderLinesTab> {
   }
 
   Future<void> _onMarkShortage() async {
-    if (_selectedIds.isEmpty) return;
+    if (_selectedIds.isEmpty || widget.orderNo == null) return;
     final result = await showDialog<({int shortQty, String? reasonCode})>(
       context: context,
       builder: (context) => _MarkShortageDialog(s: s, density: density),
@@ -145,24 +147,29 @@ class _OrderLinesTabState extends State<OrderLinesTab> {
       await _showInfoDialog(kERsn001, kERsn001Message);
       return;
     }
-    _setLines(_effectiveLines.map((line) {
-      if (!_selectedIds.contains(line.id)) return line;
-      return line.copyWith(shortQty: result.shortQty, reasonCode: result.reasonCode);
-    }).toList());
+    outboundWorkflowEngine.executeMarkShortage(
+      widget.orderNo!,
+      _selectedIds.toList(),
+      result.shortQty,
+      result.reasonCode!,
+    );
+    widget.onOrderDataChanged?.call();
     setState(() => _selectedIds = {});
   }
 
   Future<void> _onSetReasonCode() async {
-    if (_selectedIds.isEmpty) return;
+    if (_selectedIds.isEmpty || widget.orderNo == null) return;
     final reasonCode = await showDialog<String>(
       context: context,
       builder: (context) => _SetReasonCodeDialog(s: s, density: density),
     );
     if (reasonCode == null || !mounted) return;
-    _setLines(_effectiveLines.map((line) {
-      if (!_selectedIds.contains(line.id)) return line;
-      return line.copyWith(reasonCode: reasonCode);
-    }).toList());
+    outboundWorkflowEngine.executeSetReasonCode(
+      widget.orderNo!,
+      _selectedIds.toList(),
+      reasonCode,
+    );
+    widget.onOrderDataChanged?.call();
     setState(() => _selectedIds = {});
   }
 
@@ -207,13 +214,13 @@ class _OrderLinesTabState extends State<OrderLinesTab> {
             onClearSelection: () => setState(() => _selectedIds = {}),
             primaryActions: [
               FilledButton.tonal(
-                onPressed: _selectedIds.isEmpty ? null : _onMarkShortage,
+                onPressed: (_selectedIds.isEmpty || !canExecuteLineAction()) ? null : _onMarkShortage,
                 style: FilledButton.styleFrom(minimumSize: Size(0, density.buttonHeight)),
                 child: const Text('Mark shortage'),
               ),
               SizedBox(width: s.xs),
               FilledButton.tonal(
-                onPressed: _selectedIds.isEmpty ? null : _onSetReasonCode,
+                onPressed: (_selectedIds.isEmpty || !canExecuteLineAction()) ? null : _onSetReasonCode,
                 style: FilledButton.styleFrom(minimumSize: Size(0, density.buttonHeight)),
                 child: const Text('Set reason code'),
               ),

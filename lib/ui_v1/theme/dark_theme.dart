@@ -26,7 +26,8 @@ ThemeData uiV1DarkTheme({
     onSecondary: Colors.black87,
     surface: c.surface,
     onSurface: c.textPrimary,
-    surfaceContainerHighest: c.surfaceAlt,
+    surfaceContainerHigh: c.surfaceAlt,
+    surfaceContainerHighest: c.surfaceElevated,
     onSurfaceVariant: c.textSecondary,
     outline: c.border,
     outlineVariant: c.divider,
@@ -147,8 +148,42 @@ ThemeData uiV1DarkTheme({
       color: c.surface,
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(radius.md),
+        borderRadius: BorderRadius.circular(radius.lg),
         side: BorderSide(color: c.border),
+      ),
+    ),
+    iconTheme: IconThemeData(
+      size: 24,
+      color: c.textSecondary,
+    ),
+    chipTheme: ChipThemeData(
+      backgroundColor: c.surfaceAlt,
+      side: BorderSide(color: c.border),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(radius.sm),
+      ),
+      padding: EdgeInsets.symmetric(
+        horizontal: t.spacing.sm,
+        vertical: (densityTokens.chipHeight - typo.lineHeightXs) / 2,
+      ),
+    ),
+    iconButtonTheme: IconButtonThemeData(
+      style: IconButton.styleFrom(
+        minimumSize: Size(densityTokens.buttonHeight, densityTokens.buttonHeight),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radius.sm),
+        ),
+        visualDensity: VisualDensity.compact,
+      ),
+    ),
+    checkboxTheme: CheckboxThemeData(
+      fillColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) return c.accent.withValues(alpha: 0.85);
+        return Colors.transparent;
+      }),
+      side: BorderSide(color: c.border),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(radius.xs),
       ),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(

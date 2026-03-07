@@ -1,21 +1,17 @@
-// Unified outline icon set for ui_v1 (Material Symbols Outline).
-// Single weight/optical size for sidebar and shell.
+// Unified thin-outline icon set for ui_v1 shell and navigation (Lucide).
+// Single weight, geometric, premium app-like look.
 
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 import '../utils/nav_item.dart' as nav;
 
-/// Registry of outline-style icons for ui_v1. Use for sidebar, shell, etc.
-/// Style: thin outline, same weight/optical size everywhere.
+/// Registry of thin outline icons for ui_v1. Use for sidebar, topbar, and shell.
 abstract class UiIcons {
   UiIcons._();
 
-  /// Default icon size for sidebar (expanded and collapsed).
-  static const double sidebarIconSize = 24;
+  static const double sidebarIconSize = 22;
 
-  /// Icon for nav item. Use in sidebar (v1/v2) and any nav that shows UiV1NavItem.
-  /// Mapping: document, checklist, box, apps, settings, lab — unambiguous in collapsed mode.
   static IconData iconForNavItem(nav.UiV1NavItem item) {
     switch (item) {
       case nav.UiV1NavItem.orders:
@@ -24,6 +20,12 @@ abstract class UiIcons {
         return picking;
       case nav.UiV1NavItem.packing:
         return packing;
+      case nav.UiV1NavItem.movements:
+        return movements;
+      case nav.UiV1NavItem.replenishment:
+        return replenishment;
+      case nav.UiV1NavItem.cycleCount:
+        return cycleCount;
       case nav.UiV1NavItem.products:
         return products;
       case nav.UiV1NavItem.settings:
@@ -33,80 +35,34 @@ abstract class UiIcons {
     }
   }
 
-  /// Orders — document/table style.
-  static const IconData orders = Symbols.description;
+  static const IconData orders = LucideIcons.fileText;
+  static const IconData picking = LucideIcons.clipboardList;
+  static const IconData packing = LucideIcons.package;
+  static const IconData movements = LucideIcons.arrowLeftRight;
+  static const IconData replenishment = LucideIcons.packagePlus;
+  static const IconData cycleCount = LucideIcons.clipboardCheck;
+  static const IconData products = LucideIcons.layoutGrid;
+  static const IconData settings = LucideIcons.settings;
+  static const IconData playground = LucideIcons.flaskConical;
 
-  /// Picking — checklist/task.
-  static const IconData picking = Symbols.checklist;
+  static const IconData collapseLeft = LucideIcons.chevronLeft;
+  static const IconData collapseRight = LucideIcons.chevronRight;
 
-  /// Packing — package/box.
-  static const IconData packing = Symbols.inventory;
-
-  /// Products — grid/catalog.
-  static const IconData products = Symbols.apps;
-
-  /// Settings.
-  static const IconData settings = Symbols.settings;
-
-  /// Dev/Playground — lab/science.
-  static const IconData playground = Symbols.science;
-
-  /// Collapse sidebar (show expand state): chevron left.
-  static const IconData collapseLeft = Symbols.chevron_left;
-
-  /// Expand sidebar (show collapse state): chevron right.
-  static const IconData collapseRight = Symbols.chevron_right;
-
-  // --- Shell / toolbar / actions (outline, same weight) ---
-
-  /// Back navigation.
-  static const IconData arrowBack = Symbols.arrow_back;
-
-  /// Info (outline).
-  static const IconData info = Symbols.info;
-
-  /// More actions (horizontal ellipsis).
-  static const IconData moreHoriz = Symbols.more_horiz;
-
-  /// More actions (vertical).
-  static const IconData moreVert = Symbols.more_vert;
-
-  /// Menu (hamburger).
-  static const IconData menu = Symbols.menu;
-
-  /// Clear / close input.
-  static const IconData clear = Symbols.close;
-
-  /// Close / dismiss.
-  static const IconData close = Symbols.close;
-
-  /// Refresh / retry.
-  static const IconData refresh = Symbols.refresh;
-
-  /// Dropdown arrow.
-  static const IconData arrowDropDown = Symbols.arrow_drop_down;
-
-  /// Light theme / brightness.
-  static const IconData lightMode = Symbols.light_mode;
-
-  /// Person / account.
-  static const IconData person = Symbols.person;
-
-  /// Check / done (small, e.g. stepper).
-  static const IconData check = Symbols.check;
-
-  /// Chevron right (e.g. stepper).
-  static const IconData chevronRight = Symbols.chevron_right;
-
-  /// Search (toolbar).
-  static const IconData search = Symbols.search;
-
-  /// Filters (filter list).
-  static const IconData filterList = Symbols.filter_list;
-
-  /// View / tune / sort (toolbar view selector).
-  static const IconData view = Symbols.tune;
-
-  /// Next step (forward action).
-  static const IconData arrowForward = Symbols.arrow_forward;
+  static const IconData arrowBack = LucideIcons.arrowLeft;
+  static const IconData info = LucideIcons.info;
+  static const IconData moreHoriz = LucideIcons.moreHorizontal;
+  static const IconData moreVert = LucideIcons.moreVertical;
+  static const IconData menu = LucideIcons.menu;
+  static const IconData clear = LucideIcons.x;
+  static const IconData close = LucideIcons.x;
+  static const IconData refresh = LucideIcons.refreshCw;
+  static const IconData arrowDropDown = LucideIcons.chevronDown;
+  static const IconData lightMode = LucideIcons.sun;
+  static const IconData person = LucideIcons.user;
+  static const IconData check = LucideIcons.check;
+  static const IconData chevronRight = LucideIcons.chevronRight;
+  static const IconData search = LucideIcons.search;
+  static const IconData filterList = LucideIcons.filter;
+  static const IconData view = LucideIcons.slidersHorizontal;
+  static const IconData arrowForward = LucideIcons.arrowRight;
 }

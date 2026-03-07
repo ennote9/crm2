@@ -35,13 +35,13 @@ class DemoHandlingUnit {
   int get linesCount => contents.length;
   int get totalQty => contents.fold(0, (s, c) => s + c.packedQty);
 
-  DemoHandlingUnit copyWith({String? status}) {
+  DemoHandlingUnit copyWith({String? status, String? sscc}) {
     return DemoHandlingUnit(
       id: id,
       huNo: huNo,
       type: type,
       status: status ?? this.status,
-      sscc: sscc,
+      sscc: sscc ?? this.sscc,
       contents: contents,
       weight: weight,
     );

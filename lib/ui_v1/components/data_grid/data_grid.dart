@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../components/icon_widget.dart';
 import '../../icons/ui_icons.dart';
 import '../../theme/density.dart';
 import 'data_grid_column.dart';
@@ -359,11 +360,22 @@ class _DataRowWidget<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color? bg = selected
-        ? colorScheme.primaryContainer.withValues(alpha: 0.5)
-        : null;
-    if (focused && !selected) {
-      bg = colorScheme.surfaceContainerHighest;
+    // Soft background highlight only; no vertical blue stripe.
+    final isDark = theme.brightness == Brightness.dark;
+    Color? bg;
+    BoxDecoration? decoration;
+    if (selected) {
+      bg = isDark
+          ? colorScheme.surfaceContainerHigh.withValues(alpha: 0.85)
+          : colorScheme.surfaceContainerHighest;
+      decoration = BoxDecoration(
+        border: Border(
+          top: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.6)),
+          bottom: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.6)),
+        ),
+      );
+    } else if (focused) {
+      bg = colorScheme.surfaceContainerHighest.withValues(alpha: isDark ? 0.5 : 0.7);
     }
 
     return Material(
@@ -374,13 +386,7 @@ class _DataRowWidget<T> extends StatelessWidget {
         highlightColor: theme.highlightColor,
         child: Container(
           height: rowHeight,
-          decoration: BoxDecoration(
-            border: focused
-                ? Border(
-                    left: BorderSide(color: colorScheme.primary, width: 2),
-                  )
-                : null,
-          ),
+          decoration: decoration,
           child: Row(
             children: [
               SizedBox(
@@ -416,7 +422,7 @@ class _DataRowWidget<T> extends StatelessWidget {
                 SizedBox(
                   width: _actionsWidth,
                   child: IconButton(
-                    icon: const Icon(UiIcons.moreHoriz),
+                    icon: const UiV1Icon(icon: UiIcons.moreHoriz),
                     onPressed: onRowActionsTap,
                     tooltip: 'Actions',
                   ),

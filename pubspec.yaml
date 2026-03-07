@@ -34,8 +34,10 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
-  # Material Symbols (outline style) for ui_v1 sidebar and consistent icon set.
+  # Material Symbols (outline style) for legacy/optional use.
   material_symbols_icons: ^4.2906.0
+  # Lucide: thin outline icons for shell/nav (premium app-like look).
+  lucide_icons: ^0.257.0
 
 dev_dependencies:
   flutter_test:

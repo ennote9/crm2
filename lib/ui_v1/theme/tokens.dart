@@ -5,12 +5,13 @@ import 'package:flutter/material.dart';
 
 // --- Colors ---
 
-/// Color token set for one theme (light or dark).
+/// Color token set for one theme (light or dark). v2: premium dark = near-black/graphite; accent only for active/focus.
 class UiV1ColorTokens {
   const UiV1ColorTokens({
     required this.bg,
     required this.surface,
     required this.surfaceAlt,
+    required this.surfaceElevated,
     required this.border,
     required this.divider,
     required this.textPrimary,
@@ -31,6 +32,8 @@ class UiV1ColorTokens {
   final Color bg;
   final Color surface;
   final Color surfaceAlt;
+  /// Slightly lighter than surface (e.g. sidebar, raised cards).
+  final Color surfaceElevated;
   final Color border;
   final Color divider;
   final Color textPrimary;
@@ -47,48 +50,50 @@ class UiV1ColorTokens {
   final Color selectedBg;
   final Color focusRing;
 
-  /// Light theme colors (DesignTokens §5).
+  /// Light theme v2: cold gray-white background, white cards, subtle borders, accent only where needed.
   static const UiV1ColorTokens light = UiV1ColorTokens(
-    bg: Color(0xFFF7F8FA),
+    bg: Color(0xFFF5F5F7),
     surface: Color(0xFFFFFFFF),
-    surfaceAlt: Color(0xFFF2F4F7),
-    border: Color(0xFFE3E7EE),
-    divider: Color(0xFFEDF0F5),
-    textPrimary: Color(0xFF111827),
-    textSecondary: Color(0xFF4B5563),
-    textMuted: Color(0xFF6B7280),
+    surfaceAlt: Color(0xFFF0F0F2),
+    surfaceElevated: Color(0xFFFFFFFF),
+    border: Color(0xFFE2E2E6),
+    divider: Color(0xFFEBEBEE),
+    textPrimary: Color(0xFF1A1A1E),
+    textSecondary: Color(0xFF5C5C66),
+    textMuted: Color(0xFF8A8A92),
     accent: Color(0xFF2563EB),
     accentSubtle: Color(0xFFEFF6FF),
     success: Color(0xFF16A34A),
-    warning: Color(0xFFD97706),
+    warning: Color(0xFFCA8A04),
     danger: Color(0xFFDC2626),
     info: Color(0xFF2563EB),
     neutral: Color(0xFF6B7280),
-    hoverBg: Color(0x0A111827),
-    selectedBg: Color(0x142563EB),
+    hoverBg: Color(0x08000000),
+    selectedBg: Color(0x122563EB),
     focusRing: Color(0xFF2563EB),
   );
 
-  /// Dark theme colors (DesignTokens §6, not inversion).
+  /// Dark theme v2: near-black / graphite premium dark; accent blue only for active/focus/actions.
   static const UiV1ColorTokens dark = UiV1ColorTokens(
-    bg: Color(0xFF0B1220),
-    surface: Color(0xFF0F1A2B),
-    surfaceAlt: Color(0xFF111F33),
-    border: Color(0xFF22324A),
-    divider: Color(0xFF1B2A40),
-    textPrimary: Color(0xFFE5E7EB),
-    textSecondary: Color(0xFFAAB3C2),
-    textMuted: Color(0xFF8892A6),
-    accent: Color(0xFF4F8BFF),
-    accentSubtle: Color(0x1A4F8BFF),
+    bg: Color(0xFF0A0A0C),
+    surface: Color(0xFF121214),
+    surfaceAlt: Color(0xFF161618),
+    surfaceElevated: Color(0xFF1C1C1E),
+    border: Color(0xFF2A2A2E),
+    divider: Color(0xFF222226),
+    textPrimary: Color(0xFFF0F0F2),
+    textSecondary: Color(0xFF9A9AA3),
+    textMuted: Color(0xFF6E6E76),
+    accent: Color(0xFF5B8DEF),
+    accentSubtle: Color(0x1A5B8DEF),
     success: Color(0xFF22C55E),
-    warning: Color(0xFFF59E0B),
+    warning: Color(0xFFE5A319),
     danger: Color(0xFFEF4444),
-    info: Color(0xFF4F8BFF),
-    neutral: Color(0xFF8892A6),
-    hoverBg: Color(0x14FFFFFF),
-    selectedBg: Color(0x1A4F8BFF),
-    focusRing: Color(0xFF4F8BFF),
+    info: Color(0xFF5B8DEF),
+    neutral: Color(0xFF8A8A92),
+    hoverBg: Color(0x0CFFFFFF),
+    selectedBg: Color(0x185B8DEF),
+    focusRing: Color(0xFF5B8DEF),
   );
 }
 

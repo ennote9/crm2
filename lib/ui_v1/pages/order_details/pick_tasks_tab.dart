@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../components/chips/index.dart';
 import '../../components/data_grid/index.dart';
+import '../../components/icon_widget.dart';
 import '../../demo_data/demo_data.dart';
 import '../../icons/ui_icons.dart';
 import '../../theme/density.dart';
@@ -33,10 +34,11 @@ UiV1StatusVariant _pickTaskStatusVariant(String status) {
 
 /// Pick Tasks tab: filters + search + dense list. State preserved when switching tabs.
 class PickTasksTab extends StatefulWidget {
-  const PickTasksTab({super.key, this.orderNo, this.tasks});
+  const PickTasksTab({super.key, this.orderNo, this.tasks, this.onOrderDataChanged});
 
   final String? orderNo;
   final List<DemoPickTask>? tasks;
+  final VoidCallback? onOrderDataChanged;
 
   @override
   State<PickTasksTab> createState() => _PickTasksTabState();
@@ -163,9 +165,9 @@ class _PickTasksTabState extends State<PickTasksTab>
   void _openTaskDetail(DemoPickTask task) {
     final width = MediaQuery.sizeOf(context).width;
     if (width >= 600) {
-      _showTaskDetailDrawer(context, task);
+      _showTaskDetailDrawer(context, task, widget.orderNo, widget.onOrderDataChanged);
     } else {
-      _showTaskDetailBottomSheet(context, task);
+      _showTaskDetailBottomSheet(context, task, widget.orderNo, widget.onOrderDataChanged);
     }
   }
 
@@ -296,7 +298,7 @@ class _PickTasksTabState extends State<PickTasksTab>
 
 class _ClearSearchIntent extends Intent {}
 
-void _showTaskDetailDrawer(BuildContext context, DemoPickTask task) {
+void _showTaskDetailDrawer(BuildContext context, DemoPickTask task, String? orderNo, VoidCallback? onOrderDataChanged) {
   final theme = Theme.of(context);
   final s = UiV1SpacingTokens.standard;
   final density = UiV1DensityTokens.dense;
@@ -342,14 +344,14 @@ void _showTaskDetailDrawer(BuildContext context, DemoPickTask task) {
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(UiIcons.close),
+                        icon: const UiV1Icon(icon: UiIcons.close),
                         onPressed: () => Navigator.of(context).pop(),
                         tooltip: 'Close',
                       ),
                     ],
                   ),
                 ),
-                Divider(height: 1, color: theme.colorScheme.outlineVariant),
+                Divider(height: 1, color: (Theme.of(context).brightness == Brightness.dark ? UiV1Tokens.dark : UiV1Tokens.light).colors.border),
                 Expanded(
                   child: SingleChildScrollView(
                     padding: EdgeInsets.all(s.md),
@@ -358,6 +360,8 @@ void _showTaskDetailDrawer(BuildContext context, DemoPickTask task) {
                       density: density,
                       s: s,
                       theme: theme,
+                      orderNo: orderNo,
+                      onOrderDataChanged: onOrderDataChanged,
                     ),
                   ),
                 ),
@@ -370,7 +374,7 @@ void _showTaskDetailDrawer(BuildContext context, DemoPickTask task) {
   );
 }
 
-void _showTaskDetailBottomSheet(BuildContext context, DemoPickTask task) {
+void _showTaskDetailBottomSheet(BuildContext context, DemoPickTask task, String? orderNo, VoidCallback? onOrderDataChanged) {
   final theme = Theme.of(context);
   final s = UiV1SpacingTokens.standard;
   final density = UiV1DensityTokens.dense;
@@ -401,14 +405,14 @@ void _showTaskDetailBottomSheet(BuildContext context, DemoPickTask task) {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(UiIcons.close),
+                  icon: const UiV1Icon(icon: UiIcons.close),
                   onPressed: () => Navigator.of(context).pop(),
                   tooltip: 'Close',
                 ),
               ],
             ),
           ),
-          Divider(height: 1, color: theme.colorScheme.outlineVariant),
+          Divider(height: 1, color: (Theme.of(context).brightness == Brightness.dark ? UiV1Tokens.dark : UiV1Tokens.light).colors.border),
           Flexible(
             child: ListView(
               controller: scrollController,
@@ -419,6 +423,8 @@ void _showTaskDetailBottomSheet(BuildContext context, DemoPickTask task) {
                   density: density,
                   s: s,
                   theme: theme,
+                  orderNo: orderNo,
+                  onOrderDataChanged: onOrderDataChanged,
                 ),
               ],
             ),
@@ -435,15 +441,46 @@ class _TaskDetailContent extends StatelessWidget {
     required this.density,
     required this.s,
     required this.theme,
+    this.orderNo,
+    this.onOrderDataChanged,
   });
 
   final DemoPickTask task;
   final UiV1DensityTokens density;
   final UiV1SpacingTokens s;
   final ThemeData theme;
+  final String? orderNo;
+  final VoidCallback? onOrderDataChanged;
+
+  void _runTaskAction(BuildContext context, String actionId) {
+    if (orderNo == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Order context missing')),
+      );
+      return;
+    }
+    if (!canExecutePickTaskAction()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Недостаточно прав для выполнения действия.')),
+      );
+      return;
+    }
+    final ok = outboundWorkflowEngine.executePickTaskAction(orderNo!, task.id, actionId);
+    onOrderDataChanged?.call();
+    if (context.mounted) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(ok ? 'Task updated' : 'Action not allowed')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final hasPermission = canExecutePickTaskAction();
+    final canStart = hasPermission && outboundWorkflowEngine.canExecutePickTaskAction(orderNo ?? '', task.id, 'start_pick_task');
+    final canComplete = hasPermission && outboundWorkflowEngine.canExecutePickTaskAction(orderNo ?? '', task.id, 'complete_pick_task');
+    final canException = hasPermission && outboundWorkflowEngine.canExecutePickTaskAction(orderNo ?? '', task.id, 'report_pick_exception');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -464,35 +501,21 @@ class _TaskDetailContent extends StatelessWidget {
           runSpacing: s.xs,
           children: [
             FilledButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Start (placeholder)')),
-                );
-              },
+              onPressed: canStart ? () => _runTaskAction(context, 'start_pick_task') : null,
               style: FilledButton.styleFrom(
                 minimumSize: Size(0, density.buttonHeight),
               ),
               child: const Text('Start'),
             ),
             FilledButton.tonal(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Complete (placeholder)')),
-                );
-              },
+              onPressed: canComplete ? () => _runTaskAction(context, 'complete_pick_task') : null,
               style: FilledButton.styleFrom(
                 minimumSize: Size(0, density.buttonHeight),
               ),
               child: const Text('Complete'),
             ),
             OutlinedButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Report exception (placeholder)'),
-                  ),
-                );
-              },
+              onPressed: canException ? () => _runTaskAction(context, 'report_pick_exception') : null,
               style: OutlinedButton.styleFrom(
                 minimumSize: Size(0, density.buttonHeight),
               ),

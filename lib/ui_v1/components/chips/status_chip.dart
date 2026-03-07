@@ -54,7 +54,7 @@ class UiV1StatusChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: bg,
           borderRadius: BorderRadius.circular(UiV1RadiusTokens.standard.lg),
-          border: Border.all(color: fg.withValues(alpha: 0.4)),
+          border: Border.all(color: fg.withValues(alpha: 0.28)),
         ),
         alignment: Alignment.center,
         child: Text(

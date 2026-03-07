@@ -31,6 +31,7 @@ class UiV1AppShell extends StatefulWidget {
     this.navItems,
     this.onThemeToggle,
     this.onUserMenuTap,
+    this.userMenuWidget,
   });
 
   final Widget child;
@@ -41,6 +42,8 @@ class UiV1AppShell extends StatefulWidget {
   final List<UiV1NavItem>? navItems;
   final VoidCallback? onThemeToggle;
   final VoidCallback? onUserMenuTap;
+  /// When set, shown in topbar instead of default user button (e.g. demo role switcher).
+  final Widget? userMenuWidget;
 
   @override
   State<UiV1AppShell> createState() => _UiV1AppShellState();
@@ -74,6 +77,7 @@ class _UiV1AppShellState extends State<UiV1AppShell> {
             UiV1Topbar(
               onThemeToggle: widget.onThemeToggle,
               onUserMenuTap: widget.onUserMenuTap,
+              userMenuWidget: widget.userMenuWidget,
             ),
             Expanded(
               child: Row(
@@ -126,6 +130,7 @@ class _UiV1AppShellState extends State<UiV1AppShell> {
             onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
             onThemeToggle: widget.onThemeToggle,
             onUserMenuTap: widget.onUserMenuTap,
+            userMenuWidget: widget.userMenuWidget,
           ),
           Expanded(child: content),
         ],

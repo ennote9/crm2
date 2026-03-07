@@ -1,8 +1,11 @@
 // Sidebar v2: expanded (icon + text) / collapsed (icons only, tooltip), round toggle.
+// v2.1: no left stripe; active = rounded pill only (slightly lighter than sidebar), soft contrast.
 
 import 'package:flutter/material.dart';
 
+import '../components/icon_widget.dart';
 import '../icons/ui_icons.dart';
+import '../theme/tokens.dart';
 import '../utils/nav_item.dart';
 
 /// Sidebar v2: two modes (expanded/collapsed), round collapse button, active item as background pill.
@@ -36,20 +39,25 @@ class UiV1SidebarV2 extends StatelessWidget {
         ? items.where((e) => e != UiV1NavItem.playground).toList()
         : items;
 
+    final colors = Theme.of(context).brightness == Brightness.dark
+        ? UiV1ColorTokens.dark
+        : UiV1ColorTokens.light;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sidebarBg = isDark ? colorScheme.surfaceContainerHighest : colors.surfaceAlt;
     return Material(
-      color: colorScheme.surfaceContainerHighest,
+      color: sidebarBg,
       child: Container(
         width: sideWidth,
         decoration: BoxDecoration(
           border: Border(
-            right: BorderSide(color: colorScheme.outlineVariant),
+            right: BorderSide(color: colors.border),
           ),
         ),
         child: Column(
           children: [
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.symmetric(vertical: 10),
                 shrinkWrap: true,
                 children: [
                   for (final item in mainItems)
@@ -98,40 +106,50 @@ class _SidebarV2Tile extends StatelessWidget {
   final bool isActive;
   final VoidCallback? onTap;
 
-  static const double _horizontalPadding = 12;
-  static const double _verticalPadding = 10;
-  static const double _activeStripWidth = 2;
+  static const double _horizontalPadding = 14;
+  static const double _verticalPadding = 11;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final iconData = UiIcons.iconForNavItem(item);
+    final colors = theme.brightness == Brightness.dark
+        ? UiV1ColorTokens.dark
+        : UiV1ColorTokens.light;
+    final radius = UiV1RadiusTokens.standard;
 
-    // Active: more contrast; default: standard
-    final iconColor = isActive
-        ? colorScheme.primary
-        : colorScheme.onSurfaceVariant;
-    final textColor = isActive
-        ? colorScheme.primary
-        : colorScheme.onSurface;
+    // Inactive: transparent. Active: rounded pill (readable contrast). Hover: subtle overlay.
+    final isDark = theme.brightness == Brightness.dark;
+    final activeBg = isDark
+        ? colors.surfaceAlt.withValues(alpha: 0.9)
+        : colors.surfaceAlt.withValues(alpha: 0.95);
+    final hoverBg = colors.hoverBg;
+    // Active: readable contrast (onSurface), no accent fill
+    final iconColor = isActive ? colorScheme.onSurface : colorScheme.onSurfaceVariant;
+    final labelColor = isActive ? colorScheme.onSurface : colorScheme.onSurface;
 
-    final content = collapsed
-        ? Icon(
-            iconData,
+    final contentResolved = collapsed
+        ? UiV1Icon(
+            icon: UiIcons.iconForNavItem(item),
             size: UiIcons.sidebarIconSize,
+            isActive: false,
             color: iconColor,
           )
         : Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(iconData, size: UiIcons.sidebarIconSize, color: iconColor),
+              UiV1Icon(
+                icon: UiIcons.iconForNavItem(item),
+                size: UiIcons.sidebarIconSize,
+                isActive: false,
+                color: iconColor,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   item.label,
                   style: theme.textTheme.labelLarge?.copyWith(
-                    color: textColor,
+                    color: labelColor,
                     fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
                   ),
                   overflow: TextOverflow.ellipsis,
@@ -141,67 +159,40 @@ class _SidebarV2Tile extends StatelessWidget {
             ],
           );
 
-    // Default (inactive): transparent — no card, merges with sidebar.
-    // Active: subtle pill + accent strip. Hover: very light overlay (both modes).
-    final activeBg = colorScheme.primaryContainer.withValues(alpha: 0.45);
-    final hoverBg = colorScheme.onSurface.withValues(alpha: 0.05);
-
     final tile = Material(
       type: MaterialType.transparency,
       color: isActive ? activeBg : Colors.transparent,
-      borderRadius: collapsed ? null : BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(radius.lg),
       child: InkWell(
         onTap: onTap,
-        borderRadius: collapsed ? null : BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(radius.lg),
         hoverColor: hoverBg,
-        splashColor: colorScheme.primary.withValues(alpha: 0.1),
-        highlightColor: colorScheme.primary.withValues(alpha: 0.06),
-        child: Stack(
-          children: [
-            if (isActive)
-              Positioned(
-                left: 0,
-                top: 0,
-                bottom: 0,
-                child: Container(
-                  width: _activeStripWidth,
-                  decoration: BoxDecoration(
-                    color: colorScheme.primary,
-                    borderRadius: collapsed
-                        ? null
-                        : const BorderRadius.only(
-                            topRight: Radius.circular(1),
-                            bottomRight: Radius.circular(1),
-                          ),
-                  ),
-                ),
-              ),
-            Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: collapsed ? 0 : _horizontalPadding,
-                vertical: _verticalPadding,
-              ),
-              alignment: collapsed ? Alignment.center : Alignment.centerLeft,
-              child: collapsed
-                  ? Tooltip(
-                      message: item.label,
-                      child: content,
-                    )
-                  : content,
-            ),
-          ],
+        splashColor: colorScheme.primary.withValues(alpha: 0.06),
+        highlightColor: colorScheme.primary.withValues(alpha: 0.04),
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: collapsed ? 0 : _horizontalPadding,
+            vertical: _verticalPadding,
+          ),
+          alignment: collapsed ? Alignment.center : Alignment.centerLeft,
+          child: collapsed
+              ? Tooltip(
+                  message: item.label,
+                  child: contentResolved,
+                )
+              : contentResolved,
         ),
       ),
     );
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       child: tile,
     );
   }
 }
 
-/// Round button "<" / ">" at bottom of sidebar.
+/// Collapse button: same visual language as nav pills, at bottom of sidebar.
 class _CollapseButtonV2 extends StatelessWidget {
   const _CollapseButtonV2({
     required this.collapsed,
@@ -214,26 +205,32 @@ class _CollapseButtonV2 extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colors = theme.brightness == Brightness.dark
+        ? UiV1ColorTokens.dark
+        : UiV1ColorTokens.light;
+    final radius = UiV1RadiusTokens.standard;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
+      padding: const EdgeInsets.fromLTRB(10, 10, 10, 14),
       child: Center(
         child: Material(
-          color: colorScheme.surfaceContainerHigh,
-          shape: const CircleBorder(),
+          color: colors.surfaceAlt,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(radius.lg),
+          ),
           elevation: 0,
           child: InkWell(
             onTap: onPressed,
-            customBorder: const CircleBorder(),
+            borderRadius: BorderRadius.circular(radius.lg),
             child: Container(
               width: 36,
               height: 36,
               alignment: Alignment.center,
-              child: Icon(
-                collapsed ? UiIcons.collapseRight : UiIcons.collapseLeft,
-                size: 22,
-                color: colorScheme.onSurfaceVariant,
+              child: UiV1Icon(
+                icon: collapsed ? UiIcons.collapseRight : UiIcons.collapseLeft,
+                size: UiIcons.sidebarIconSize,
+                isActive: false,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
           ),

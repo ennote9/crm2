@@ -25,4 +25,22 @@ class DemoPickTask {
   final int pickedQty;
   /// Order number (set when aggregating for picking worklist).
   final String? orderNo;
+
+  DemoPickTask copyWith({
+    String? status,
+    int? pickedQty,
+    String? orderNo,
+  }) {
+    return DemoPickTask(
+      id: id,
+      taskNo: taskNo,
+      status: status ?? this.status,
+      zone: zone,
+      location: location,
+      sku: sku,
+      qty: qty,
+      pickedQty: pickedQty ?? this.pickedQty,
+      orderNo: orderNo ?? this.orderNo,
+    );
+  }
 }

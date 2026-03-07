@@ -281,17 +281,17 @@ class _KeyTsChip extends StatelessWidget {
     final hasValue = value != null && value!.isNotEmpty;
     final onSurface = theme.colorScheme.onSurface;
     final muted = theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7);
+    final tokens = Theme.of(context).brightness == Brightness.dark ? UiV1Tokens.dark : UiV1Tokens.light;
+    final r = UiV1RadiusTokens.standard;
     return Container(
       padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xxs),
       decoration: BoxDecoration(
         color: hasValue
-            ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
-            : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.25),
-        borderRadius: BorderRadius.circular(UiV1RadiusTokens.standard.sm),
+            ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.45)
+            : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(r.sm),
         border: Border.all(
-          color: hasValue
-              ? theme.colorScheme.outlineVariant.withValues(alpha: 0.5)
-              : theme.colorScheme.outlineVariant.withValues(alpha: 0.25),
+          color: hasValue ? tokens.colors.border : tokens.colors.border.withValues(alpha: 0.5),
         ),
       ),
       child: Column(
@@ -338,7 +338,7 @@ class _DateHeader extends StatelessWidget {
       child: Text(
         label,
         style: theme.textTheme.labelMedium?.copyWith(
-          color: theme.colorScheme.primary,
+          color: theme.colorScheme.onSurfaceVariant,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -473,7 +473,7 @@ class _TimelineRow extends StatelessWidget {
                             color: isException
                                 ? theme.colorScheme.errorContainer
                                 : theme.colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(UiV1RadiusTokens.standard.xs),
                           ),
                           child: Text(
                             isException ? 'EXCEPTION' : 'SYSTEM',
@@ -489,13 +489,17 @@ class _TimelineRow extends StatelessWidget {
                       ],
                     ),
                   ),
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xxs),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(UiV1RadiusTokens.standard.sm),
-                    border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
-                  ),
+                Builder(
+                  builder: (context) {
+                    final tokens = Theme.of(context).brightness == Brightness.dark ? UiV1Tokens.dark : UiV1Tokens.light;
+                    final r = UiV1RadiusTokens.standard;
+                    return Container(
+                      padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xxs),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(r.md),
+                        border: Border.all(color: tokens.colors.border),
+                      ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     mainAxisSize: MainAxisSize.min,
@@ -528,7 +532,9 @@ class _TimelineRow extends StatelessWidget {
                         ),
                       ],
                     ],
-                  ),
+                    ),
+                  );
+                  },
                 ),
               ],
             ),

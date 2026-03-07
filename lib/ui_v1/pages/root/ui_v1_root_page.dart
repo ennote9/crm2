@@ -3,8 +3,12 @@
 import 'package:flutter/material.dart';
 
 import '../../app_shell/app_shell.dart';
+import '../../app_shell/demo_role_switcher.dart';
 import '../../demo_data/demo_data.dart';
 import '../../utils/nav_item.dart';
+import '../movements/movements_worklist_page.dart';
+import '../cycle_count/cycle_count_worklist_page.dart';
+import '../replenishment/replenishment_worklist_page.dart';
 import '../orders/orders_worklist_page.dart';
 import '../packing/packing_worklist_page.dart';
 import '../picking/picking_worklist_page.dart';
@@ -42,6 +46,27 @@ class _UiV1RootPageState extends State<UiV1RootPage> {
       demoRepository.seed();
       _seeded = true;
     }
+    currentUserStore.addListener(_onUserChanged);
+  }
+
+  @override
+  void dispose() {
+    currentUserStore.removeListener(_onUserChanged);
+    super.dispose();
+  }
+
+  void _onUserChanged() {
+    setState(() {
+      final allowed = _allowedNavItems();
+      if (!allowed.contains(_currentNavId)) {
+        _currentNavId = allowed.isNotEmpty ? allowed.first : UiV1NavItem.orders;
+      }
+    });
+  }
+
+  List<UiV1NavItem> _allowedNavItems() {
+    final base = widget.showDevMenu ? UiV1NavItem.allWithPlayground : UiV1NavItem.all;
+    return base.where(canViewSection).toList();
   }
 
   Widget _bodyForNav() {
@@ -52,6 +77,12 @@ class _UiV1RootPageState extends State<UiV1RootPage> {
         return const PickingWorklistPage();
       case UiV1NavItem.packing:
         return const PackingWorklistPage();
+      case UiV1NavItem.movements:
+        return const MovementsWorklistPage();
+      case UiV1NavItem.replenishment:
+        return const ReplenishmentWorklistPage();
+      case UiV1NavItem.cycleCount:
+        return const CycleCountWorklistPage();
       case UiV1NavItem.products:
         return const ProductsWorklistPage();
       case UiV1NavItem.settings:
@@ -67,13 +98,14 @@ class _UiV1RootPageState extends State<UiV1RootPage> {
 
   @override
   Widget build(BuildContext context) {
-    final navItems = widget.showDevMenu ? UiV1NavItem.allWithPlayground : UiV1NavItem.all;
+    final navItems = _allowedNavItems();
     return UiV1AppShell(
       currentNavId: _currentNavId,
       onNavSelected: (id) => setState(() => _currentNavId = id),
       navItems: navItems,
       onThemeToggle: widget.onThemeToggle,
       onUserMenuTap: () {},
+      userMenuWidget: const DemoRoleSwitcherButton(),
       child: _bodyForNav(),
     );
   }

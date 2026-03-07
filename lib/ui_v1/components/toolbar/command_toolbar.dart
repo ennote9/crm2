@@ -275,31 +275,34 @@ class _SearchField extends StatelessWidget {
     return SizedBox(
       width: 220,
       height: height,
-      child: TextField(
-        controller: controller,
-        focusNode: focusNode,
-        onSubmitted: (_) => onSubmit(),
-        decoration: InputDecoration(
-          hintText: 'Search…',
-          hintStyle: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-          ),
-          isDense: true,
-          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(radius)),
-          suffixIcon: ListenableBuilder(
-            listenable: controller,
-            builder: (_, _) => controller.text.isNotEmpty
-                ? IconButton(
-                    icon: const Icon(UiIcons.close, size: 18),
-                    onPressed: onClear,
-                    style: IconButton.styleFrom(
-                      minimumSize: const Size(32, 32),
-                      padding: EdgeInsets.zero,
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  )
-                : const SizedBox.shrink(),
+      child: Material(
+        type: MaterialType.transparency,
+        child: TextField(
+          controller: controller,
+          focusNode: focusNode,
+          onSubmitted: (_) => onSubmit(),
+          decoration: InputDecoration(
+            hintText: 'Search…',
+            hintStyle: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+            ),
+            isDense: true,
+            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(radius)),
+            suffixIcon: ListenableBuilder(
+              listenable: controller,
+              builder: (_, _) => controller.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(UiIcons.close, size: 18),
+                      onPressed: onClear,
+                      style: IconButton.styleFrom(
+                        minimumSize: const Size(32, 32),
+                        padding: EdgeInsets.zero,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
           ),
         ),
       ),

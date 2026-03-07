@@ -6,11 +6,13 @@ import 'package:flutter/material.dart';
 
 import '../../components/chips/index.dart';
 import '../../components/dialogs/index.dart';
+import '../../components/icon_widget.dart';
 import '../../components/progress/index.dart';
 import '../../demo_data/demo_data.dart';
 import '../../icons/ui_icons.dart';
 import '../../theme/density.dart';
 import '../../theme/tokens.dart';
+import 'document_preview_dialog.dart';
 import 'order_actions_model.dart';
 import 'events_tab.dart';
 import 'handling_units_tab.dart';
@@ -100,25 +102,72 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
   );
 
   void _applyAction(String actionId) {
-    demoRepository.applyAction(widget.payload.orderNo, actionId);
+    final orderNo = widget.payload.orderNo;
+    if (actionId == 'place_on_hold' || actionId == 'resolve_hold') {
+      if (!canExecuteHoldAction()) {
+        if (mounted) _showPermissionDenied();
+        return;
+      }
+    } else if (!canExecuteOrderAction(actionId)) {
+      if (mounted) _showPermissionDenied();
+      return;
+    }
+    bool ok = false;
+    if (actionId == 'place_on_hold') {
+      ok = outboundWorkflowEngine.placeOnHold(orderNo);
+    } else if (actionId == 'resolve_hold') {
+      ok = outboundWorkflowEngine.resolveHold(orderNo);
+    } else {
+      ok = outboundWorkflowEngine.executeOrderAction(orderNo, actionId);
+    }
     _refreshFromRepo();
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${actionIdToLabel(actionId)} executed (demo)')),
-      );
+      if (ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${actionIdToLabel(actionId)} executed')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Action not allowed in current state')),
+        );
+      }
     }
+  }
+
+  void _showPermissionDenied() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Недостаточно прав для выполнения действия.')),
+    );
   }
 
   String? get _nextAction =>
       nextAvailableActionByPriority(_actionsUi) ?? nextDisabledActionByPriority(_actionsUi);
   bool get _nextEnabled {
     if (_isOnHold || _isCancelled) return false;
-    return _nextAction != null && _actionsUi.availableActions.contains(_nextAction);
+    final action = _nextAction;
+    if (action == null || !_actionsUi.availableActions.contains(action)) return false;
+    if (!canExecuteOrderAction(action)) return false;
+    if (action == 'allocate' && !_hasAnyAvailableStock) return false;
+    return true;
   }
   DisabledActionReason? get _nextDisabledReason {
     final override = _nextDisabledReasonOverride;
     if (override != null) return override;
-    return _nextAction != null ? _actionsUi.disabledActions[_nextAction] : null;
+    final action = _nextAction;
+    if (action != null && isPermissionDeniedForOrderAction(action)) {
+      return const DisabledActionReason(code: kPermissionDeniedCode, message: kPermissionDeniedMessage);
+    }
+    if (action == 'allocate' && !_hasAnyAvailableStock) {
+      return const DisabledActionReason(code: 'E_INV_001', message: 'Нет доступного остатка для резервирования.');
+    }
+    return action != null ? _actionsUi.disabledActions[action] : null;
+  }
+  bool get _hasAnyAvailableStock {
+    final wh = widget.payload.warehouse;
+    for (final l in _lines) {
+      if (demoRepository.getAvailableQty(wh, l.sku) > 0) return true;
+    }
+    return false;
   }
   ActionReason? get _nextWarning =>
       _nextAction != null ? _actionsUi.actionWarnings[_nextAction] : null;
@@ -185,6 +234,28 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
     }
   }
 
+  bool get _canShowShipmentPreview {
+    final s = _orderStatus.toLowerCase();
+    return s == 'packed' || s == 'shipped' || s == 'closed';
+  }
+
+  void _onDocumentSelected(String docId) {
+    final orderNo = widget.payload.orderNo;
+    try {
+      if (docId == 'packing_slip') {
+        final preview = demoRepository.buildPackingSlipPreview(orderNo);
+        showPackingSlipPreviewDialog(context, preview: preview);
+      } else if (docId == 'shipment_summary' && _canShowShipmentPreview) {
+        final preview = demoRepository.buildShipmentPreview(orderNo);
+        showShipmentPreviewDialog(context, preview: preview);
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Unable to load preview.')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -218,7 +289,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                 padding: EdgeInsets.fromLTRB(s.xl, s.md, s.xl, s.sm),
                 decoration: BoxDecoration(
                   border: Border(
-                    bottom: BorderSide(color: colorScheme.outlineVariant),
+                    bottom: BorderSide(color: tokens.colors.border),
                   ),
                 ),
                 child: Column(
@@ -227,7 +298,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                     Row(
                       children: [
                         IconButton(
-                          icon: const Icon(UiIcons.arrowBack),
+                          icon: const UiV1Icon(icon: UiIcons.arrowBack),
                           onPressed: () => Navigator.of(context).pop(),
                           tooltip: 'Back',
                         ),
@@ -235,13 +306,15 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                         Expanded(
                           child: Row(
                             children: [
-                              Text(
-                                widget.payload.orderNo,
-                                style: theme.textTheme.headlineSmall?.copyWith(
-                                  fontWeight: FontWeight.w600,
+                              Expanded(
+                                child: Text(
+                                  widget.payload.orderNo,
+                                  style: theme.textTheme.headlineSmall?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
                                 ),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
                               ),
                               SizedBox(width: s.sm),
                               UiV1StatusChip(
@@ -273,14 +346,14 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                                 style: FilledButton.styleFrom(
                                   minimumSize: Size(0, density.buttonHeight),
                                 ),
-                                icon: const Icon(UiIcons.arrowForward, size: 20),
+                                icon: const UiV1Icon(icon: UiIcons.arrowForward, size: 20),
                                 label: const Text('Next step'),
                               ),
                             ),
                             if (showNextStepInfoIcon) ...[
                               SizedBox(width: s.xxs),
                               IconButton(
-                                icon: const Icon(UiIcons.info, size: 20),
+                                icon: const UiV1Icon(icon: UiIcons.info, size: 20),
                                 onPressed: _showNextStepReason,
                                 tooltip: nextInfoTooltip,
                                 style: IconButton.styleFrom(
@@ -293,14 +366,54 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                         ),
                         SizedBox(width: s.xs),
                         PopupMenuButton<String>(
-                          icon: const Icon(UiIcons.moreHoriz),
+                          icon: const UiV1Icon(icon: UiIcons.orders),
+                          tooltip: 'Documents',
+                          onSelected: _onDocumentSelected,
+                          itemBuilder: (context) => [
+                            const PopupMenuItem<String>(
+                              value: 'packing_slip',
+                              child: ListTile(
+                                dense: true,
+                                contentPadding: EdgeInsets.zero,
+                                title: Text('Packing slip'),
+                              ),
+                            ),
+                            PopupMenuItem<String>(
+                              value: 'shipment_summary',
+                              enabled: _canShowShipmentPreview,
+                              child: ListTile(
+                                dense: true,
+                                contentPadding: EdgeInsets.zero,
+                                title: Text(
+                                  'Shipment summary',
+                                  style: _canShowShipmentPreview
+                                      ? null
+                                      : theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                                ),
+                                subtitle: _canShowShipmentPreview
+                                    ? null
+                                    : Text(
+                                        'Available when order is Packed / Shipped / Closed',
+                                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        PopupMenuButton<String>(
+                          icon: const UiV1Icon(icon: UiIcons.moreHoriz),
                           tooltip: 'More',
                           onSelected: _onMoreActionSelected,
                           itemBuilder: (context) => kOrderActionIds.map((actionId) {
-                            final enabled = _actionsUi.availableActions.contains(actionId);
-                            final reason = _actionsUi.disabledActions[actionId];
+                            final workflowEnabled = _actionsUi.availableActions.contains(actionId);
+                            final hasPermission = canExecuteOrderAction(actionId);
+                            final enabled = workflowEnabled && hasPermission;
+                            final reason = !hasPermission
+                                ? const DisabledActionReason(code: kPermissionDeniedCode, message: kPermissionDeniedMessage)
+                                : _actionsUi.disabledActions[actionId];
                             return PopupMenuItem<String>(
                               value: actionId,
+                              enabled: enabled,
                               child: ListTile(
                                 dense: true,
                                 contentPadding: EdgeInsets.zero,
@@ -339,28 +452,38 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                 ),
               ),
             ),
-            // Summary strip (mock)
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: s.xl, vertical: s.sm),
-              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _SummaryItem(label: 'Ordered', value: '—', theme: theme),
-                    SizedBox(width: s.xl),
-                    _SummaryItem(label: 'Reserved', value: '—', theme: theme),
-                    SizedBox(width: s.xl),
-                    _SummaryItem(label: 'Picked', value: '—', theme: theme),
-                    SizedBox(width: s.xl),
-                    _SummaryItem(label: 'Packed', value: '—', theme: theme),
-                    SizedBox(width: s.xl),
-                    _SummaryItem(label: 'Shipped', value: '—', theme: theme),
-                    SizedBox(width: s.xl),
-                    _SummaryItem(label: 'Short', value: '—', theme: theme),
-                  ],
-                ),
-              ),
+            // Summary strip (from lines / inventory)
+            Builder(
+              builder: (context) {
+                final ordered = _lines.fold<int>(0, (s, l) => s + l.orderedQty);
+                final reserved = _lines.fold<int>(0, (s, l) => s + l.reservedQty);
+                final picked = _lines.fold<int>(0, (s, l) => s + l.pickedQty);
+                final packed = _lines.fold<int>(0, (s, l) => s + l.packedQty);
+                final shipped = _lines.fold<int>(0, (s, l) => s + l.shippedQty);
+                final short = _lines.fold<int>(0, (s, l) => s + l.shortQty);
+                return Container(
+                  padding: EdgeInsets.symmetric(horizontal: s.xl, vertical: s.sm),
+                  color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _SummaryItem(label: 'Ordered', value: '$ordered', theme: theme),
+                        SizedBox(width: s.xl),
+                        _SummaryItem(label: 'Reserved', value: '$reserved', theme: theme),
+                        SizedBox(width: s.xl),
+                        _SummaryItem(label: 'Picked', value: '$picked', theme: theme),
+                        SizedBox(width: s.xl),
+                        _SummaryItem(label: 'Packed', value: '$packed', theme: theme),
+                        SizedBox(width: s.xl),
+                        _SummaryItem(label: 'Shipped', value: '$shipped', theme: theme),
+                        SizedBox(width: s.xl),
+                        _SummaryItem(label: 'Short', value: '$short', theme: theme),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
             // Tabs
             Material(
@@ -387,9 +510,18 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                       demoRepository.setOrderLines(widget.payload.orderNo, l);
                       _refreshFromRepo();
                     },
+                    onOrderDataChanged: _refreshFromRepo,
                   ),
-                  PickTasksTab(orderNo: widget.payload.orderNo, tasks: _pickTasks),
-                  HandlingUnitsTab(orderNo: widget.payload.orderNo, hus: _hus),
+                  PickTasksTab(
+                    orderNo: widget.payload.orderNo,
+                    tasks: _pickTasks,
+                    onOrderDataChanged: _refreshFromRepo,
+                  ),
+                  HandlingUnitsTab(
+                    orderNo: widget.payload.orderNo,
+                    hus: _hus,
+                    onOrderDataChanged: _refreshFromRepo,
+                  ),
                   EventsTab(orderNo: widget.payload.orderNo, events: _events),
                 ],
               ),
