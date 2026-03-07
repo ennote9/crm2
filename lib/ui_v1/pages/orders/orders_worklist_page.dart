@@ -9,6 +9,7 @@ import '../../components/table_platform/index.dart';
 import '../../demo_data/demo_data.dart';
 import '../../icons/ui_icons.dart';
 import '../../theme/density.dart';
+import '../../theme/tokens.dart';
 import '../order_details/order_details_page.dart';
 import 'orders_table_config.dart';
 
@@ -30,7 +31,6 @@ class _OrdersWorklistPageState extends State<OrdersWorklistPage> {
   Set<String> _selectedIds = {};
   late TextEditingController _searchController;
   late FocusNode _searchFocusNode;
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late List<SavedTableView> _savedViews;
 
   @override
@@ -89,14 +89,46 @@ class _OrdersWorklistPageState extends State<OrdersWorklistPage> {
     setState(() {});
   }
 
-  void _onReset() {
-    _searchController.clear();
-    _controller.state = _controller.config.initialState;
-    setState(() {});
-  }
-
   void _onViewPanelTap() {
-    _scaffoldKey.currentState?.openEndDrawer();
+    final media = MediaQuery.of(context);
+    final tokens = Theme.of(context).brightness == Brightness.dark
+        ? UiV1Tokens.dark
+        : UiV1Tokens.light;
+    final maxW = 1100.0.clamp(400.0, media.size.width - 48);
+    final maxH = (media.size.height * 0.88).clamp(400.0, media.size.height - 48);
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: Material(
+          borderRadius: BorderRadius.circular(tokens.radius.lg),
+          color: Theme.of(ctx).colorScheme.surface,
+          clipBehavior: Clip.antiAlias,
+          child: Container(
+            constraints: BoxConstraints(maxWidth: maxW, maxHeight: maxH),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(tokens.radius.lg),
+              border: Border.all(
+                color: Theme.of(ctx).colorScheme.outline.withValues(alpha: 0.2),
+              ),
+            ),
+            child: UnifiedViewPanelContent<DemoOrder>(
+              controller: _controller,
+              fullList: _fullList,
+              onStateChanged: () => setState(() {}),
+              savedViews: _savedViews,
+              onSavedViewsChanged: (list) => setState(() => _savedViews = list),
+              onClose: () => Navigator.of(ctx).pop(),
+              currentUserId: currentUserStore.currentUser.userId,
+              currentUserDisplayName: currentUserStore.currentUser.fullName,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   List<UnifiedFilterChipItem> get _filterChips {
@@ -177,20 +209,6 @@ class _OrdersWorklistPageState extends State<OrdersWorklistPage> {
           ),
         },
         child: Scaffold(
-          key: _scaffoldKey,
-          endDrawer: Drawer(
-            width: 480,
-            child: UnifiedViewPanelContent<DemoOrder>(
-              controller: _controller,
-              fullList: _fullList,
-              onStateChanged: () => setState(() {}),
-              savedViews: _savedViews,
-              onSavedViewsChanged: (list) => setState(() => _savedViews = list),
-              onClose: () => Navigator.of(context).pop(),
-              currentUserId: currentUserStore.currentUser.userId,
-              currentUserDisplayName: currentUserStore.currentUser.fullName,
-            ),
-          ),
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -202,7 +220,6 @@ class _OrdersWorklistPageState extends State<OrdersWorklistPage> {
                 searchHint: 'Search order no, warehouse, status…',
                 filterChips: _filterChips,
                 onViewPanelTap: _onViewPanelTap,
-                onReset: _onReset,
               extraActions: widget.initialProductSku != null
                   ? Padding(
                       padding: const EdgeInsets.only(left: 8),

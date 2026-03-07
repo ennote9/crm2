@@ -258,10 +258,10 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Header: title + view selector + actions
+        // Header: title + view selector + actions + close
         Container(
           width: double.infinity,
-          padding: EdgeInsets.fromLTRB(s.md, s.sm, s.md, s.sm),
+          padding: EdgeInsets.fromLTRB(s.md, s.sm, s.xs, s.sm),
           decoration: BoxDecoration(
             color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
             border: Border(bottom: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.25))),
@@ -270,16 +270,24 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                'View',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: theme.colorScheme.onSurface,
-                  letterSpacing: 0.2,
-                ),
-              ),
-              SizedBox(height: s.xs),
-              DropdownButtonFormField<String?>(
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'View',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: theme.colorScheme.onSurface,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                        SizedBox(height: s.xs),
+                        DropdownButtonFormField<String?>(
                 key: ValueKey(state.activeViewId),
                 initialValue: state.activeViewId,
                 isDense: true,
@@ -350,6 +358,21 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
                   child: TextButton(onPressed: _reset, child: const Text('Reset')),
                 ),
               ],
+                      ],
+                    ),
+                  ),
+                  if (widget.onClose != null)
+                    IconButton(
+                      onPressed: widget.onClose,
+                      icon: const Icon(Icons.close),
+                      style: IconButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(40, 40),
+                      ),
+                    ),
+                ],
+              ),
             ],
           ),
         ),
@@ -374,31 +397,6 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
           child: SingleChildScrollView(
             padding: EdgeInsets.symmetric(horizontal: s.md, vertical: s.sm),
             child: _buildCurrentTabContent(),
-          ),
-        ),
-        // Footer
-        Container(
-          padding: EdgeInsets.symmetric(horizontal: s.md, vertical: s.sm),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface.withValues(alpha: 0.5),
-            border: Border(top: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.2))),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              if (widget.onClose != null)
-                FilledButton.tonal(
-                  onPressed: widget.onClose,
-                  style: FilledButton.styleFrom(minimumSize: const Size(64, 36)),
-                  child: const Text('Close'),
-                )
-              else
-                FilledButton.tonal(
-                  onPressed: () => Navigator.of(context).pop(),
-                  style: FilledButton.styleFrom(minimumSize: const Size(64, 36)),
-                  child: const Text('Close'),
-                ),
-            ],
           ),
         ),
       ],

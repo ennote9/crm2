@@ -23,7 +23,7 @@ class UnifiedTableToolbar extends StatelessWidget {
     this.viewOptions = const [],
     this.currentViewId,
     this.onViewSelected,
-    required this.onReset,
+    this.onReset,
     this.extraActions,
     this.statsVisible = false,
     this.onStatsVisibleChanged,
@@ -41,7 +41,7 @@ class UnifiedTableToolbar extends StatelessWidget {
   final List<({String id, String label})> viewOptions;
   final String? currentViewId;
   final void Function(String? viewId)? onViewSelected;
-  final VoidCallback onReset;
+  final VoidCallback? onReset;
   final Widget? extraActions;
   final bool statsVisible;
   final ValueChanged<bool>? onStatsVisibleChanged;
@@ -169,15 +169,17 @@ class UnifiedTableToolbar extends StatelessWidget {
                       buttonHeight: density.buttonHeight,
                     ),
                   ],
-                  SizedBox(width: s.sm),
-                  TextButton(
-                    onPressed: onReset,
-                    style: TextButton.styleFrom(
-                      minimumSize: Size(0, density.buttonHeight),
-                      padding: EdgeInsets.symmetric(horizontal: s.xs),
+                  if (onReset != null) ...[
+                    SizedBox(width: s.sm),
+                    TextButton(
+                      onPressed: onReset,
+                      style: TextButton.styleFrom(
+                        minimumSize: Size(0, density.buttonHeight),
+                        padding: EdgeInsets.symmetric(horizontal: s.xs),
+                      ),
+                      child: const Text('Reset'),
                     ),
-                    child: const Text('Reset'),
-                  ),
+                  ],
                   if (extraActions != null) ...[
                     SizedBox(width: s.sm),
                     extraActions!,
