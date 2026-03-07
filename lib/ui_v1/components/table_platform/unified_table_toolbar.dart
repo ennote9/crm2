@@ -82,12 +82,13 @@ class UnifiedTableToolbar extends StatelessWidget {
           ),
         },
         child: Padding(
-          padding: EdgeInsets.fromLTRB(s.xl, s.md, s.xl, s.xs),
+          padding: EdgeInsets.fromLTRB(s.xl, s.sm, s.xl, s.xs),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   SizedBox(
                     width: 220,
@@ -104,8 +105,10 @@ class UnifiedTableToolbar extends StatelessWidget {
                             color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                           ),
                           isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          contentPadding: EdgeInsets.symmetric(horizontal: s.sm, vertical: 6),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(r.sm)),
+                          filled: true,
+                          fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                           suffixIcon: ListenableBuilder(
                             listenable: searchController,
                             builder: (_, _) => searchController.text.isNotEmpty
@@ -143,7 +146,6 @@ class UnifiedTableToolbar extends StatelessWidget {
                     ),
                   if (onFiltersTap != null) SizedBox(width: s.sm),
                   if (onViewPanelTap != null) ...[
-                    SizedBox(width: s.sm),
                     FilledButton.tonal(
                       onPressed: onViewPanelTap,
                       style: FilledButton.styleFrom(
@@ -160,7 +162,6 @@ class UnifiedTableToolbar extends StatelessWidget {
                       ),
                     ),
                   ] else if (viewOptions.isNotEmpty && onViewSelected != null) ...[
-                    SizedBox(width: s.sm),
                     _ViewDropdown(
                       options: viewOptions,
                       currentId: currentViewId,
@@ -171,6 +172,10 @@ class UnifiedTableToolbar extends StatelessWidget {
                   SizedBox(width: s.sm),
                   TextButton(
                     onPressed: onReset,
+                    style: TextButton.styleFrom(
+                      minimumSize: Size(0, density.buttonHeight),
+                      padding: EdgeInsets.symmetric(horizontal: s.xs),
+                    ),
                     child: const Text('Reset'),
                   ),
                   if (extraActions != null) ...[
@@ -200,15 +205,15 @@ class UnifiedTableToolbar extends StatelessWidget {
               if (filterChips.isNotEmpty) ...[
                 SizedBox(height: s.xs),
                 Wrap(
-                  spacing: s.xs,
+                  spacing: s.xxs,
                   runSpacing: s.xxs,
                   children: filterChips.map((c) => InputChip(
-                    label: Text(c.label, style: theme.textTheme.labelSmall),
-                    deleteIcon: const Icon(UiIcons.close, size: 16),
+                    label: Text(c.label, style: theme.textTheme.labelSmall?.copyWith(fontSize: 12)),
+                    deleteIcon: const Icon(UiIcons.close, size: 14),
                     onDeleted: c.onRemove,
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                    padding: EdgeInsets.symmetric(horizontal: s.xs, vertical: 2),
                     labelPadding: EdgeInsets.zero,
                   )).toList(),
                 ),

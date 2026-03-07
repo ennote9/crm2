@@ -70,7 +70,7 @@ class UnifiedStatsPanel<T> extends StatelessWidget {
     var first = true;
     for (final def in metricDefinitions) {
       if (!ids.contains(def.id)) continue;
-      if (!first) children.add(SizedBox(width: s.md));
+      if (!first) children.add(SizedBox(width: s.lg));
       first = false;
       children.add(_MetricCard(label: def.label, value: values[def.id] ?? '0'));
     }
@@ -79,14 +79,15 @@ class UnifiedStatsPanel<T> extends StatelessWidget {
     return Material(
       type: MaterialType.transparency,
       child: Container(
-        padding: EdgeInsets.all(s.sm),
+        padding: EdgeInsets.symmetric(horizontal: s.xl, vertical: s.sm),
         decoration: BoxDecoration(
           color: tokens.colors.surfaceAlt,
           border: Border(
-            bottom: BorderSide(color: tokens.colors.border),
+            bottom: BorderSide(color: tokens.colors.border.withValues(alpha: 0.8)),
           ),
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: children,
         ),
       ),

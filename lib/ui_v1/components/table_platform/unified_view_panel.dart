@@ -249,7 +249,7 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
       const DropdownMenuItem(value: null, child: Text('Custom')),
       DropdownMenuItem<String?>(
         value: SavedTableView.kStandardViewId,
-        child: const Text('Standard'),
+        child: const Text('Standard (default)'),
       ),
       ...myViews.map((v) => DropdownMenuItem<String?>(value: v.id, child: Text(_viewDisplayLabel(v)))),
       ...sharedOthers.map((v) => DropdownMenuItem<String?>(value: v.id, child: Text(_viewDisplayLabel(v)))),
@@ -258,68 +258,73 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        // Header: title + view selector + actions
         Container(
           width: double.infinity,
-          padding: EdgeInsets.symmetric(horizontal: s.md, vertical: s.sm),
+          padding: EdgeInsets.fromLTRB(s.md, s.sm, s.md, s.sm),
           decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-            border: Border(bottom: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.2))),
+            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+            border: Border(bottom: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.25))),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: 56,
-                    child: Text('View', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-                  ),
-                  Expanded(
-                    child: DropdownButton<String?>(
-                      value: state.activeViewId,
-                      isDense: true,
-                      isExpanded: true,
-                      underline: const SizedBox.shrink(),
-                      items: viewDropdownItems,
-                      onChanged: (id) {
-                        if (id == null) {
-                          _applyState(state.copyWith(activeViewId: null));
-                        } else if (id == SavedTableView.kStandardViewId) {
-                          _applyStandardView();
-                        } else {
-                          for (final v in _savedViews) {
-                            if (v.id == id) {
-                              widget.controller.applyView(v);
-                              widget.onStateChanged();
-                              setState(() {});
-                              break;
-                            }
-                          }
-                        }
-                      },
-                    ),
-                  ),
-                ],
+              Text(
+                'View',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurface,
+                  letterSpacing: 0.2,
+                ),
+              ),
+              SizedBox(height: s.xs),
+              DropdownButtonFormField<String?>(
+                key: ValueKey(state.activeViewId),
+                initialValue: state.activeViewId,
+                isDense: true,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  isDense: true,
+                  contentPadding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(tokens.radius.sm)),
+                  filled: true,
+                  fillColor: theme.colorScheme.surface,
+                ),
+                items: viewDropdownItems,
+                onChanged: (id) {
+                  if (id == null) {
+                    _applyState(state.copyWith(activeViewId: null));
+                  } else if (id == SavedTableView.kStandardViewId) {
+                    _applyStandardView();
+                  } else {
+                    for (final v in _savedViews) {
+                      if (v.id == id) {
+                        widget.controller.applyView(v);
+                        widget.onStateChanged();
+                        setState(() {});
+                        break;
+                      }
+                    }
+                  }
+                },
               ),
               if (hasCrud) ...[
                 SizedBox(height: s.sm),
-                Wrap(
-                  spacing: s.xs,
-                  runSpacing: s.xs,
-                  crossAxisAlignment: WrapCrossAlignment.center,
+                Row(
                   children: [
                     FilledButton.tonal(
                       onPressed: _canSaveCurrentView ? _saveCurrentView : null,
-                      style: FilledButton.styleFrom(minimumSize: const Size(0, 32)),
+                      style: FilledButton.styleFrom(minimumSize: const Size(0, 32), padding: EdgeInsets.symmetric(horizontal: s.sm)),
                       child: const Text('Save'),
                     ),
+                    SizedBox(width: s.xs),
                     OutlinedButton(
                       onPressed: () => _saveAsNewView(),
-                      style: OutlinedButton.styleFrom(minimumSize: const Size(0, 32)),
+                      style: OutlinedButton.styleFrom(minimumSize: const Size(0, 32), padding: EdgeInsets.symmetric(horizontal: s.sm)),
                       child: const Text('Save as'),
                     ),
+                    const Spacer(),
                     TextButton(
                       onPressed: _canDeleteCurrentView ? _deleteCurrentView : null,
                       style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
@@ -338,18 +343,21 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
                     ),
                   ],
                 ),
-              ] else
-                Padding(
-                  padding: EdgeInsets.only(top: s.xs),
+              ] else ...[
+                SizedBox(height: s.xs),
+                Align(
+                  alignment: Alignment.centerRight,
                   child: TextButton(onPressed: _reset, child: const Text('Reset')),
                 ),
+              ],
             ],
           ),
         ),
+        // Tab strip
         Container(
           padding: EdgeInsets.symmetric(horizontal: s.xs, vertical: s.xxs),
           decoration: BoxDecoration(
-            color: theme.colorScheme.surface.withValues(alpha: 0.3),
+            color: theme.colorScheme.surface.withValues(alpha: 0.6),
             border: Border(bottom: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.2))),
           ),
           child: Row(
@@ -361,28 +369,33 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
             ],
           ),
         ),
+        // Content
         Expanded(
           child: SingleChildScrollView(
             padding: EdgeInsets.symmetric(horizontal: s.md, vertical: s.sm),
             child: _buildCurrentTabContent(),
           ),
         ),
+        // Footer
         Container(
-          padding: EdgeInsets.symmetric(horizontal: s.md, vertical: s.xs),
+          padding: EdgeInsets.symmetric(horizontal: s.md, vertical: s.sm),
           decoration: BoxDecoration(
-            border: Border(top: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.15))),
+            color: theme.colorScheme.surface.withValues(alpha: 0.5),
+            border: Border(top: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.2))),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               if (widget.onClose != null)
-                TextButton(
+                FilledButton.tonal(
                   onPressed: widget.onClose,
+                  style: FilledButton.styleFrom(minimumSize: const Size(64, 36)),
                   child: const Text('Close'),
                 )
               else
-                TextButton(
+                FilledButton.tonal(
                   onPressed: () => Navigator.of(context).pop(),
+                  style: FilledButton.styleFrom(minimumSize: const Size(64, 36)),
                   child: const Text('Close'),
                 ),
             ],
@@ -395,17 +408,19 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
   Widget _sectionTab(int index, String label) {
     final theme = Theme.of(context);
     final tokens = Theme.of(context).brightness == Brightness.dark ? UiV1Tokens.dark : UiV1Tokens.light;
+    final s = tokens.spacing;
     final selected = _selectedTabIndex == index;
     return TextButton(
       onPressed: () => setState(() => _selectedTabIndex = index),
       style: TextButton.styleFrom(
         foregroundColor: selected ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
-        padding: EdgeInsets.symmetric(horizontal: tokens.spacing.sm, vertical: tokens.spacing.xs),
+        padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
+        minimumSize: const Size(0, 36),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(tokens.radius.xs),
         ),
       ),
-      child: Text(label, style: theme.textTheme.labelMedium),
+      child: Text(label, style: theme.textTheme.labelMedium?.copyWith(fontWeight: selected ? FontWeight.w600 : null)),
     );
   }
 
@@ -633,12 +648,11 @@ class _InlineFilterRowState<T> extends State<_InlineFilterRow<T>> {
     final operators = _operatorsForMode(mode);
 
     return Container(
-      margin: EdgeInsets.only(bottom: s.sm),
       padding: EdgeInsets.all(s.sm),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(tokens.radius.sm),
-        border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.25)),
+        border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -717,11 +731,31 @@ class _InlineFilterRowState<T> extends State<_InlineFilterRow<T>> {
           ),
           if (_needsValue) ...[
             SizedBox(height: s.sm),
-            Text('Value', style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-            SizedBox(height: s.xxs),
-            if (mode == _FilterMode.text) ..._buildTextValueEditor(tokens, theme),
-            if (mode == _FilterMode.enum_) ..._buildEnumValueEditor(tokens, theme),
-            if (mode == _FilterMode.date) ..._buildDateValueEditor(tokens, theme),
+            Container(
+              padding: EdgeInsets.all(s.sm),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(tokens.radius.xs),
+                border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.12)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Value',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  SizedBox(height: s.xxs),
+                  if (mode == _FilterMode.text) ..._buildTextValueEditor(tokens, theme),
+                  if (mode == _FilterMode.enum_) ..._buildEnumValueEditor(tokens, theme),
+                  if (mode == _FilterMode.date) ..._buildDateValueEditor(tokens, theme),
+                ],
+              ),
+            ),
           ],
         ],
       ),
@@ -823,6 +857,27 @@ class _InlineFilterRowState<T> extends State<_InlineFilterRow<T>> {
       ];
     }
 
+    void selectAll() {
+      final next = Set<String>.from(options);
+      setState(() => _enumSelection = next);
+      _emit(UnifiedFilterDescriptor(
+        columnId: widget.descriptor.columnId,
+        operator: widget.descriptor.operator,
+        values: next.toList(),
+        id: widget.descriptor.id ?? widget.descriptor.columnId,
+      ));
+    }
+
+    void clearSelection() {
+      setState(() => _enumSelection = {});
+      _emit(UnifiedFilterDescriptor(
+        columnId: widget.descriptor.columnId,
+        operator: widget.descriptor.operator,
+        values: [],
+        id: widget.descriptor.id ?? widget.descriptor.columnId,
+      ));
+    }
+
     return [
       Container(
         decoration: BoxDecoration(
@@ -839,6 +894,29 @@ class _InlineFilterRowState<T> extends State<_InlineFilterRow<T>> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(tokens.radius.xs)),
           childrenPadding: EdgeInsets.only(left: s.xs, right: s.xs, bottom: s.sm),
           children: [
+            Row(
+              children: [
+                TextButton(
+                  onPressed: options.isEmpty ? null : selectAll,
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(0, 28),
+                    padding: EdgeInsets.symmetric(horizontal: s.xs),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  child: Text('Select all', style: theme.textTheme.labelSmall),
+                ),
+                TextButton(
+                  onPressed: _enumSelection.isEmpty ? null : clearSelection,
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(0, 28),
+                    padding: EdgeInsets.symmetric(horizontal: s.xs),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  child: Text('Clear', style: theme.textTheme.labelSmall),
+                ),
+              ],
+            ),
+            SizedBox(height: s.xxs),
             TextField(
               decoration: InputDecoration(
                 hintText: 'Search…',
@@ -997,44 +1075,58 @@ class _FiltersSection<T> extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('Filter conditions', style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-        SizedBox(height: s.xs),
+        Text(
+          'Filter conditions',
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
+        SizedBox(height: s.sm),
         if (filters.isNotEmpty) ...[
           ...filters.map((f) {
-            return _InlineFilterRow<T>(
-              key: ValueKey(f.identity),
-              descriptor: f,
-              config: config,
-              fullList: fullList,
-              filterableColumnIds: filterableColumnIds,
-              onChanged: (d) {
-                if (d == null) {
+            return Padding(
+              padding: EdgeInsets.only(bottom: s.sm),
+              child: _InlineFilterRow<T>(
+                key: ValueKey(f.identity),
+                descriptor: f,
+                config: config,
+                fullList: fullList,
+                filterableColumnIds: filterableColumnIds,
+                onChanged: (d) {
+                  if (d == null) {
+                    controller.state = controller.state.removeFilter(filterId: f.identity);
+                  } else {
+                    controller.state = controller.state.addOrReplaceFilter(d);
+                  }
+                  onStateChanged();
+                },
+                onRemove: () {
                   controller.state = controller.state.removeFilter(filterId: f.identity);
-                } else {
-                  controller.state = controller.state.addOrReplaceFilter(d);
-                }
-                onStateChanged();
-              },
-              onRemove: () {
-                controller.state = controller.state.removeFilter(filterId: f.identity);
-                onStateChanged();
-              },
+                  onStateChanged();
+                },
+              ),
             );
           }),
           Padding(
             padding: EdgeInsets.only(bottom: s.sm),
-            child: TextButton(
-              onPressed: () {
-                controller.state = controller.state.clearFilters();
-                onStateChanged();
-              },
-              child: const Text('Clear all filters'),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: () {
+                  controller.state = controller.state.clearFilters();
+                  onStateChanged();
+                },
+                child: Text(
+                  'Clear all filters',
+                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
+                ),
+              ),
             ),
           ),
         ],
-        if (filterableColumns.isNotEmpty) ...[
-          SizedBox(height: s.sm),
-          TextButton.icon(
+        if (filterableColumns.isNotEmpty)
+          OutlinedButton.icon(
             onPressed: () {
               final first = filterableColumns.first;
               final mode = _effectiveFilterMode(first);
@@ -1047,8 +1139,11 @@ class _FiltersSection<T> extends StatelessWidget {
             },
             icon: const Icon(Icons.add, size: 18),
             label: const Text('Add condition'),
+            style: OutlinedButton.styleFrom(
+              alignment: Alignment.centerLeft,
+              minimumSize: const Size(0, 36),
+            ),
           ),
-        ],
       ],
     );
   }
@@ -1141,12 +1236,21 @@ class _ColumnsSectionState<T> extends State<_ColumnsSection<T>> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('Visible columns', style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+        Text(
+          'Visible columns',
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
         SizedBox(height: s.xs),
         if (visibleOrdered.isEmpty)
           Padding(
             padding: EdgeInsets.symmetric(vertical: s.sm),
-            child: Text('No visible columns', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+            child: Text(
+              'No visible columns',
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
           )
         else
           Column(
@@ -1157,47 +1261,79 @@ class _ColumnsSectionState<T> extends State<_ColumnsSection<T>> {
             ],
           ),
         SizedBox(height: s.sm),
-        Wrap(
-          spacing: s.xs,
-          runSpacing: s.xs,
-          children: [
-            TextButton.icon(
-              onPressed: selectedInVisible && selectedIndex > 0 ? moveUp : null,
-              icon: const Icon(Icons.arrow_upward, size: 18),
-              label: const Text('Move up'),
-            ),
-            TextButton.icon(
-              onPressed: selectedInVisible && selectedIndex >= 0 && selectedIndex < visibleOrdered.length - 1 ? moveDown : null,
-              icon: const Icon(Icons.arrow_downward, size: 18),
-              label: const Text('Move down'),
-            ),
-            TextButton.icon(
-              onPressed: selectedInVisible ? hideSelected : null,
-              icon: const Icon(Icons.visibility_off, size: 18),
-              label: const Text('Hide'),
-            ),
-            TextButton.icon(
-              onPressed: selectedInHidden ? showSelected : null,
-              icon: const Icon(Icons.visibility, size: 18),
-              label: const Text('Show'),
-            ),
-            TextButton(
-              onPressed: () {
-                widget.controller.state = widget.controller.state.copyWithAsCustom(
-                  visibleColumnIds: List.from(defaultOrder),
-                  columnOrder: List.from(defaultOrder),
-                );
-                widget.onStateChanged();
-                setState(() => _selectedColumnId = null);
-              },
-              child: const Text('Restore default'),
-            ),
-          ],
+        Container(
+          padding: EdgeInsets.symmetric(vertical: s.xs, horizontal: s.xs),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(radius.xs),
+            border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.12)),
+          ),
+          child: Wrap(
+            spacing: s.xs,
+            runSpacing: s.xs,
+            children: [
+              TextButton.icon(
+                onPressed: selectedInVisible && selectedIndex > 0 ? moveUp : null,
+                icon: const Icon(Icons.arrow_upward, size: 18),
+                label: const Text('Move up'),
+                style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
+              ),
+              TextButton.icon(
+                onPressed: selectedInVisible && selectedIndex >= 0 && selectedIndex < visibleOrdered.length - 1 ? moveDown : null,
+                icon: const Icon(Icons.arrow_downward, size: 18),
+                label: const Text('Move down'),
+                style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
+              ),
+              TextButton.icon(
+                onPressed: selectedInVisible ? hideSelected : null,
+                icon: const Icon(Icons.visibility_off, size: 18),
+                label: const Text('Hide'),
+                style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
+              ),
+              TextButton.icon(
+                onPressed: selectedInHidden ? showSelected : null,
+                icon: const Icon(Icons.visibility, size: 18),
+                label: const Text('Show'),
+                style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
+              ),
+              TextButton(
+                onPressed: () {
+                  widget.controller.state = widget.controller.state.copyWithAsCustom(
+                    visibleColumnIds: List.from(defaultOrder),
+                    columnOrder: List.from(defaultOrder),
+                  );
+                  widget.onStateChanged();
+                  setState(() => _selectedColumnId = null);
+                },
+                style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
+                child: const Text('Restore default'),
+              ),
+            ],
+          ),
         ),
-        if (hiddenIds.isNotEmpty) ...[
-          SizedBox(height: s.sm),
-          Text('Hidden columns', style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-          SizedBox(height: s.xs),
+        SizedBox(height: s.sm),
+        Text(
+          'Hidden columns',
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
+        SizedBox(height: s.xs),
+        if (hiddenIds.isEmpty)
+          Container(
+            padding: EdgeInsets.symmetric(vertical: s.sm, horizontal: s.sm),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(radius.sm),
+              border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.12)),
+            ),
+            child: Text(
+              'No hidden columns',
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+          )
+        else
           Container(
             padding: EdgeInsets.all(s.sm),
             decoration: BoxDecoration(
@@ -1225,6 +1361,7 @@ class _ColumnsSectionState<T> extends State<_ColumnsSection<T>> {
                             column.label,
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: selected ? theme.colorScheme.primary : null,
+                              fontWeight: selected ? FontWeight.w500 : null,
                             ),
                           ),
                         ),
@@ -1240,6 +1377,7 @@ class _ColumnsSectionState<T> extends State<_ColumnsSection<T>> {
                             if (_selectedColumnId == columnId) _selectedColumnId = null;
                             setState(() {});
                           },
+                          style: TextButton.styleFrom(minimumSize: const Size(0, 28), padding: EdgeInsets.symmetric(horizontal: s.xs)),
                           child: const Text('Show'),
                         ),
                       ],
@@ -1249,7 +1387,6 @@ class _ColumnsSectionState<T> extends State<_ColumnsSection<T>> {
               }).toList(),
             ),
           ),
-        ],
       ],
     );
   }
@@ -1270,12 +1407,26 @@ class _ColumnsSectionState<T> extends State<_ColumnsSection<T>> {
               : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(radius.xs),
           border: Border.all(
-            color: selected ? theme.colorScheme.primary.withValues(alpha: 0.5) : theme.colorScheme.outline.withValues(alpha: 0.2),
+            color: selected ? theme.colorScheme.primary.withValues(alpha: 0.6) : theme.colorScheme.outline.withValues(alpha: 0.2),
+            width: selected ? 1.5 : 1,
           ),
         ),
         child: Row(
           children: [
-            Expanded(child: Text(column.label, style: theme.textTheme.bodySmall)),
+            Icon(
+              Icons.view_column_outlined,
+              size: 20,
+              color: selected ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
+            ),
+            SizedBox(width: s.sm),
+            Expanded(
+              child: Text(
+                column.label,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: selected ? FontWeight.w500 : null,
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -1359,19 +1510,37 @@ class _SortSectionState<T> extends State<_SortSection<T>> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('Sort rules', style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+        Text(
+          'Sort rules',
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
         SizedBox(height: s.xs),
         if (sorts.isEmpty)
           Container(
-            padding: EdgeInsets.symmetric(vertical: s.sm, horizontal: s.sm),
+            padding: EdgeInsets.symmetric(vertical: s.md, horizontal: s.sm),
             decoration: BoxDecoration(
               color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(radius.sm),
               border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.15)),
             ),
-            child: Text(
-              'No sort rules. Add a rule to sort the table.',
-              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.sort, size: 28, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7)),
+                SizedBox(height: s.xs),
+                Text(
+                  'No sort rules',
+                  style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+                SizedBox(height: s.xxs),
+                Text(
+                  'Add a rule below to sort the table.',
+                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ],
             ),
           )
         else
@@ -1383,42 +1552,61 @@ class _SortSectionState<T> extends State<_SortSection<T>> {
             ],
           ),
         SizedBox(height: s.sm),
-        Wrap(
-          spacing: s.xs,
-          runSpacing: s.xs,
-          children: [
-            if (sortableColumns.isNotEmpty && availableForSort.isNotEmpty)
-              PopupMenuButton<String>(
-                offset: const Offset(0, 40),
-                itemBuilder: (ctx) => availableForSort.map((c) => PopupMenuItem(value: c.id, child: Text(c.label))).toList(),
-                onSelected: addRule,
-                child: TextButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Add'),
+        Container(
+          padding: EdgeInsets.symmetric(vertical: s.xs, horizontal: s.xs),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(radius.xs),
+            border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.12)),
+          ),
+          child: Wrap(
+            spacing: s.xs,
+            runSpacing: s.xs,
+            children: [
+              if (sortableColumns.isNotEmpty && availableForSort.isNotEmpty)
+                PopupMenuButton<String>(
+                  offset: const Offset(0, 40),
+                  itemBuilder: (ctx) => availableForSort.map((c) => PopupMenuItem(value: c.id, child: Text(c.label))).toList(),
+                  onSelected: addRule,
+                  child: FilledButton.tonal(
+                    onPressed: () {},
+                    style: FilledButton.styleFrom(minimumSize: const Size(0, 32)),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.add, size: 18),
+                        SizedBox(width: 6),
+                        Text('Add rule'),
+                      ],
+                    ),
+                  ),
                 ),
+              TextButton.icon(
+                onPressed: hasSelection ? removeSelected : null,
+                icon: const Icon(UiIcons.close, size: 18),
+                label: const Text('Remove'),
+                style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
               ),
-            TextButton.icon(
-              onPressed: hasSelection ? removeSelected : null,
-              icon: const Icon(UiIcons.close, size: 18),
-              label: const Text('Remove'),
-            ),
-            TextButton.icon(
-              onPressed: hasSelection && _selectedSortIndex! > 0 ? moveUp : null,
-              icon: const Icon(Icons.arrow_upward, size: 18),
-              label: const Text('Up'),
-            ),
-            TextButton.icon(
-              onPressed: hasSelection && _selectedSortIndex! < sorts.length - 1 ? moveDown : null,
-              icon: const Icon(Icons.arrow_downward, size: 18),
-              label: const Text('Down'),
-            ),
-            TextButton.icon(
-              onPressed: hasSelection ? toggleDirection : null,
-              icon: Icon(sorts.isNotEmpty && hasSelection && sorts[_selectedSortIndex!].ascending ? Icons.arrow_downward : Icons.arrow_upward, size: 18),
-              label: const Text('Toggle'),
-            ),
-          ],
+              TextButton.icon(
+                onPressed: hasSelection && _selectedSortIndex! > 0 ? moveUp : null,
+                icon: const Icon(Icons.arrow_upward, size: 18),
+                label: const Text('Up'),
+                style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
+              ),
+              TextButton.icon(
+                onPressed: hasSelection && _selectedSortIndex! < sorts.length - 1 ? moveDown : null,
+                icon: const Icon(Icons.arrow_downward, size: 18),
+                label: const Text('Down'),
+                style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
+              ),
+              TextButton.icon(
+                onPressed: hasSelection ? toggleDirection : null,
+                icon: Icon(sorts.isNotEmpty && hasSelection && sorts[_selectedSortIndex!].ascending ? Icons.arrow_downward : Icons.arrow_upward, size: 18),
+                label: const Text('Toggle'),
+                style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
+              ),
+            ],
+          ),
         ),
         if (sorts.isNotEmpty && availableForSort.isEmpty)
           Padding(
@@ -1447,7 +1635,8 @@ class _SortSectionState<T> extends State<_SortSection<T>> {
               : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(radius.sm),
           border: Border.all(
-            color: selected ? theme.colorScheme.primary.withValues(alpha: 0.5) : theme.colorScheme.outline.withValues(alpha: 0.2),
+            color: selected ? theme.colorScheme.primary.withValues(alpha: 0.6) : theme.colorScheme.outline.withValues(alpha: 0.2),
+            width: selected ? 1.5 : 1,
           ),
         ),
         child: Row(
@@ -1464,7 +1653,13 @@ class _SortSectionState<T> extends State<_SortSection<T>> {
             ),
             SizedBox(width: s.sm),
             Expanded(
-              child: Text(columnLabel, style: theme.textTheme.bodySmall, overflow: TextOverflow.ellipsis),
+              child: Text(
+                columnLabel,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  overflow: TextOverflow.ellipsis,
+                  fontWeight: selected ? FontWeight.w500 : null,
+                ),
+              ),
             ),
             SizedBox(width: s.sm),
             Text(
@@ -1550,18 +1745,24 @@ class _StatisticsSectionState<T> extends State<_StatisticsSection<T>> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('Statistics', style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-        SizedBox(height: s.xs),
+        Text(
+          'Statistics',
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
+        SizedBox(height: s.sm),
         Container(
           padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
           decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
             borderRadius: BorderRadius.circular(radius.sm),
-            border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.15)),
+            border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.2)),
           ),
           child: Row(
             children: [
-              Text('Show statistics', style: theme.textTheme.bodyMedium),
+              Text('Show statistics', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
               const Spacer(),
               Switch(
                 value: statsVisible,
@@ -1575,12 +1776,26 @@ class _StatisticsSectionState<T> extends State<_StatisticsSection<T>> {
           ),
         ),
         SizedBox(height: s.sm),
-        Text('Selected metrics', style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+        Text(
+          'Selected metrics',
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
         SizedBox(height: s.xs),
         if (selectedOrdered.isEmpty)
-          Padding(
-            padding: EdgeInsets.symmetric(vertical: s.sm),
-            child: Text('No metrics selected', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          Container(
+            padding: EdgeInsets.symmetric(vertical: s.sm, horizontal: s.sm),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(radius.sm),
+              border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.12)),
+            ),
+            child: Text(
+              'No metrics selected',
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
           )
         else
           Column(
@@ -1591,30 +1806,47 @@ class _StatisticsSectionState<T> extends State<_StatisticsSection<T>> {
             ],
           ),
         SizedBox(height: s.sm),
-        Wrap(
-          spacing: s.xs,
-          runSpacing: s.xs,
-          children: [
-            TextButton.icon(
-              onPressed: hasSelection && selectedIndex > 0 ? moveUp : null,
-              icon: const Icon(Icons.arrow_upward, size: 18),
-              label: const Text('Move up'),
-            ),
-            TextButton.icon(
-              onPressed: hasSelection && selectedIndex >= 0 && selectedIndex < selectedOrdered.length - 1 ? moveDown : null,
-              icon: const Icon(Icons.arrow_downward, size: 18),
-              label: const Text('Move down'),
-            ),
-            TextButton.icon(
-              onPressed: hasSelection ? removeSelected : null,
-              icon: const Icon(UiIcons.close, size: 18),
-              label: const Text('Remove'),
-            ),
-          ],
+        Container(
+          padding: EdgeInsets.symmetric(vertical: s.xs, horizontal: s.xs),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(radius.xs),
+            border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.12)),
+          ),
+          child: Wrap(
+            spacing: s.xs,
+            runSpacing: s.xs,
+            children: [
+              TextButton.icon(
+                onPressed: hasSelection && selectedIndex > 0 ? moveUp : null,
+                icon: const Icon(Icons.arrow_upward, size: 18),
+                label: const Text('Move up'),
+                style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
+              ),
+              TextButton.icon(
+                onPressed: hasSelection && selectedIndex >= 0 && selectedIndex < selectedOrdered.length - 1 ? moveDown : null,
+                icon: const Icon(Icons.arrow_downward, size: 18),
+                label: const Text('Move down'),
+                style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
+              ),
+              TextButton.icon(
+                onPressed: hasSelection ? removeSelected : null,
+                icon: const Icon(UiIcons.close, size: 18),
+                label: const Text('Remove'),
+                style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
+              ),
+            ],
+          ),
         ),
         if (availableIds.isNotEmpty) ...[
           SizedBox(height: s.sm),
-          Text('Available metrics', style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          Text(
+            'Available metrics',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
           SizedBox(height: s.xs),
           Container(
             padding: EdgeInsets.all(s.sm),
@@ -1636,16 +1868,11 @@ class _StatisticsSectionState<T> extends State<_StatisticsSection<T>> {
             ),
           ),
           SizedBox(height: s.xs),
-          Wrap(
-            spacing: s.xs,
-            runSpacing: s.xs,
-            children: [
-              TextButton.icon(
-                onPressed: _selectedAvailableMetricId != null ? addSelectedAvailable : null,
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Add'),
-              ),
-            ],
+          OutlinedButton.icon(
+            onPressed: _selectedAvailableMetricId != null ? addSelectedAvailable : null,
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('Add to selected'),
+            style: OutlinedButton.styleFrom(minimumSize: const Size(0, 32)),
           ),
         ],
       ],
