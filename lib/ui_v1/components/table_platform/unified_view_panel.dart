@@ -1149,75 +1149,12 @@ class _ColumnsSectionState<T> extends State<_ColumnsSection<T>> {
             child: Text('No visible columns', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
           )
         else
-          ReorderableListView.builder(
-            shrinkWrap: true,
-            buildDefaultDragHandles: false,
-            itemCount: visibleOrdered.length,
-            onReorder: (oldIndex, newIndex) {
-              if (newIndex > oldIndex) newIndex--;
-              final next = List<String>.from(visibleOrdered);
-              final item = next.removeAt(oldIndex);
-              next.insert(newIndex, item);
-              widget.controller.state = widget.controller.state.copyWithAsCustom(
-                columnOrder: next + hiddenIds,
-                visibleColumnIds: next,
-              );
-              widget.onStateChanged();
-              setState(() {});
-            },
-            itemBuilder: (context, i) {
-              final columnId = visibleOrdered[i];
-              final column = _columnById(config, columnId);
-              if (column == null) return const SizedBox.shrink(key: ValueKey('col_null'));
-              final selected = _selectedColumnId == columnId;
-              return InkWell(
-                onTap: () => setState(() => _selectedColumnId = columnId),
-                borderRadius: BorderRadius.circular(radius.xs),
-                child: Container(
-                  key: ValueKey(columnId),
-                  margin: EdgeInsets.only(bottom: s.xs),
-                  padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
-                        : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(radius.xs),
-                    border: Border.all(
-                      color: selected ? theme.colorScheme.primary.withValues(alpha: 0.5) : theme.colorScheme.outline.withValues(alpha: 0.2),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      ReorderableDragStartListener(
-                        index: i,
-                        child: Icon(Icons.drag_handle, size: 20, color: theme.colorScheme.onSurfaceVariant),
-                      ),
-                      SizedBox(width: s.sm),
-                      if (column.hideable)
-                        Checkbox(
-                          value: true,
-                          onChanged: (_) {
-                            final next = visibleIds.where((id) => id != columnId).toSet();
-                            if (next.isEmpty) return;
-                            final visibleOrderedNew = order.where((id) => next.contains(id)).toList();
-                            widget.controller.state = widget.controller.state.copyWithAsCustom(
-                              visibleColumnIds: visibleOrderedNew,
-                              columnOrder: order,
-                            );
-                            widget.onStateChanged();
-                            if (_selectedColumnId == columnId) _selectedColumnId = null;
-                            setState(() {});
-                          },
-                        )
-                      else
-                        const SizedBox(width: 24),
-                      SizedBox(width: s.xxs),
-                      Expanded(child: Text(column.label, style: theme.textTheme.bodySmall)),
-                    ],
-                  ),
-                ),
-              );
-            },
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var i = 0; i < visibleOrdered.length; i++)
+                _buildVisibleColumnRow(visibleOrdered[i], config, theme, s, radius),
+            ],
           ),
         SizedBox(height: s.sm),
         Wrap(
@@ -1316,6 +1253,34 @@ class _ColumnsSectionState<T> extends State<_ColumnsSection<T>> {
       ],
     );
   }
+
+  Widget _buildVisibleColumnRow(String columnId, UnifiedTableConfig<T> config, ThemeData theme, UiV1SpacingTokens s, UiV1RadiusTokens radius) {
+    final column = _columnById(config, columnId);
+    if (column == null) return const SizedBox.shrink();
+    final selected = _selectedColumnId == columnId;
+    return InkWell(
+      onTap: () => setState(() => _selectedColumnId = columnId),
+      borderRadius: BorderRadius.circular(radius.xs),
+      child: Container(
+        margin: EdgeInsets.only(bottom: s.xs),
+        padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
+        decoration: BoxDecoration(
+          color: selected
+              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
+              : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(radius.xs),
+          border: Border.all(
+            color: selected ? theme.colorScheme.primary.withValues(alpha: 0.5) : theme.colorScheme.outline.withValues(alpha: 0.2),
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(child: Text(column.label, style: theme.textTheme.bodySmall)),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _SortSection<T> extends StatefulWidget {
@@ -1349,11 +1314,9 @@ class _SortSectionState<T> extends State<_SortSection<T>> {
     void addRule(String columnId) {
       if (sorts.any((x) => x.columnId == columnId)) return;
       final next = List<UnifiedSortDescriptor>.from(sorts)..add(UnifiedSortDescriptor(columnId: columnId, ascending: true));
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        widget.controller.state = widget.controller.state.copyWithAsCustom(sorts: next);
-        widget.onStateChanged();
-        setState(() {});
-      });
+      widget.controller.state = widget.controller.state.copyWithAsCustom(sorts: next);
+      widget.onStateChanged();
+      setState(() {});
     }
 
     void removeSelected() {
@@ -1412,94 +1375,12 @@ class _SortSectionState<T> extends State<_SortSection<T>> {
             ),
           )
         else
-          ReorderableListView.builder(
-            shrinkWrap: true,
-            buildDefaultDragHandles: false,
-            itemCount: sorts.length,
-            onReorder: (oldIndex, newIndex) {
-              if (newIndex > oldIndex) newIndex--;
-              final next = List<UnifiedSortDescriptor>.from(sorts);
-              final item = next.removeAt(oldIndex);
-              next.insert(newIndex, item);
-              widget.controller.state = widget.controller.state.copyWithAsCustom(sorts: next);
-              widget.onStateChanged();
-              if (_selectedSortIndex != null) {
-                if (_selectedSortIndex == oldIndex) {
-                  _selectedSortIndex = newIndex;
-                } else if (_selectedSortIndex! > oldIndex && _selectedSortIndex! <= newIndex) {
-                  _selectedSortIndex = _selectedSortIndex! - 1;
-                } else if (_selectedSortIndex! < oldIndex && _selectedSortIndex! >= newIndex) {
-                  _selectedSortIndex = _selectedSortIndex! + 1;
-                }
-              }
-              setState(() {});
-            },
-            itemBuilder: (context, i) {
-              final sort = sorts[i];
-              final columnLabel = _columnLabel(config, sort.columnId);
-              final selected = _selectedSortIndex == i;
-              return InkWell(
-                onTap: () => setState(() => _selectedSortIndex = i),
-                borderRadius: BorderRadius.circular(radius.sm),
-                child: Container(
-                  key: ValueKey('${sort.columnId}_$i'),
-                  margin: EdgeInsets.only(bottom: s.xs),
-                  padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
-                        : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(radius.sm),
-                    border: Border.all(
-                      color: selected ? theme.colorScheme.primary.withValues(alpha: 0.5) : theme.colorScheme.outline.withValues(alpha: 0.2),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      ReorderableDragStartListener(
-                        index: i,
-                        child: Icon(Icons.drag_handle, size: 20, color: theme.colorScheme.onSurfaceVariant),
-                      ),
-                      SizedBox(width: s.xs),
-                      Container(
-                        width: 24,
-                        height: 24,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(radius.xs),
-                        ),
-                        child: Text('${i + 1}', style: theme.textTheme.labelSmall),
-                      ),
-                      SizedBox(width: s.sm),
-                      Expanded(
-                        child: Text(columnLabel, style: theme.textTheme.bodySmall, overflow: TextOverflow.ellipsis),
-                      ),
-                      SizedBox(width: s.sm),
-                      SegmentedButton<bool>(
-                        segments: const [
-                          ButtonSegment(value: true, label: Text('Asc'), icon: Icon(Icons.arrow_upward, size: 14)),
-                          ButtonSegment(value: false, label: Text('Desc'), icon: Icon(Icons.arrow_downward, size: 14)),
-                        ],
-                        selected: {sort.ascending},
-                        onSelectionChanged: (v) {
-                          if (v.isEmpty) return;
-                          final next = List<UnifiedSortDescriptor>.from(sorts);
-                          next[i] = UnifiedSortDescriptor(columnId: sort.columnId, ascending: v.first);
-                          widget.controller.state = widget.controller.state.copyWithAsCustom(sorts: next);
-                          widget.onStateChanged();
-                          setState(() {});
-                        },
-                        style: ButtonStyle(
-                          visualDensity: VisualDensity.compact,
-                          padding: WidgetStateProperty.all(EdgeInsets.symmetric(horizontal: s.xs, vertical: 4)),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var i = 0; i < sorts.length; i++)
+                _buildSortRuleRow(i, sorts[i], config, theme, s, radius),
+            ],
           ),
         SizedBox(height: s.sm),
         Wrap(
@@ -1550,6 +1431,51 @@ class _SortSectionState<T> extends State<_SortSection<T>> {
       ],
     );
   }
+
+  Widget _buildSortRuleRow(int i, UnifiedSortDescriptor sort, UnifiedTableConfig<T> config, ThemeData theme, UiV1SpacingTokens s, UiV1RadiusTokens radius) {
+    final columnLabel = _columnLabel(config, sort.columnId);
+    final selected = _selectedSortIndex == i;
+    return InkWell(
+      onTap: () => setState(() => _selectedSortIndex = i),
+      borderRadius: BorderRadius.circular(radius.sm),
+      child: Container(
+        margin: EdgeInsets.only(bottom: s.xs),
+        padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
+        decoration: BoxDecoration(
+          color: selected
+              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
+              : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(radius.sm),
+          border: Border.all(
+            color: selected ? theme.colorScheme.primary.withValues(alpha: 0.5) : theme.colorScheme.outline.withValues(alpha: 0.2),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 24,
+              height: 24,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(radius.xs),
+              ),
+              child: Text('${i + 1}', style: theme.textTheme.labelSmall),
+            ),
+            SizedBox(width: s.sm),
+            Expanded(
+              child: Text(columnLabel, style: theme.textTheme.bodySmall, overflow: TextOverflow.ellipsis),
+            ),
+            SizedBox(width: s.sm),
+            Text(
+              sort.ascending ? 'Asc' : 'Desc',
+              style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _StatisticsSection<T> extends StatefulWidget {
@@ -1567,6 +1493,7 @@ class _StatisticsSection<T> extends StatefulWidget {
 
 class _StatisticsSectionState<T> extends State<_StatisticsSection<T>> {
   String? _selectedMetricId;
+  String? _selectedAvailableMetricId;
 
   @override
   Widget build(BuildContext context) {
@@ -1611,6 +1538,14 @@ class _StatisticsSectionState<T> extends State<_StatisticsSection<T>> {
       setState(() => _selectedMetricId = null);
     }
 
+    void addSelectedAvailable() {
+      if (_selectedAvailableMetricId == null || selectedOrdered.contains(_selectedAvailableMetricId)) return;
+      final next = List<String>.from(selectedOrdered)..add(_selectedAvailableMetricId!);
+      widget.controller.state = widget.controller.state.copyWithAsCustom(selectedMetricIds: next);
+      widget.onStateChanged();
+      setState(() => _selectedAvailableMetricId = null);
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
@@ -1648,61 +1583,12 @@ class _StatisticsSectionState<T> extends State<_StatisticsSection<T>> {
             child: Text('No metrics selected', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
           )
         else
-          ReorderableListView.builder(
-            shrinkWrap: true,
-            buildDefaultDragHandles: false,
-            itemCount: selectedOrdered.length,
-            onReorder: (oldIndex, newIndex) {
-              if (newIndex > oldIndex) newIndex--;
-              final next = List<String>.from(selectedOrdered);
-              final item = next.removeAt(oldIndex);
-              next.insert(newIndex, item);
-              widget.controller.state = widget.controller.state.copyWithAsCustom(selectedMetricIds: next);
-              widget.onStateChanged();
-              if (_selectedMetricId != null) {
-                final id = _selectedMetricId!;
-                if (selectedOrdered[oldIndex] == id) _selectedMetricId = next[newIndex];
-              }
-              setState(() {});
-            },
-            itemBuilder: (context, i) {
-              final metricId = selectedOrdered[i];
-              UnifiedStatsMetricDefinition<T>? m;
-              for (final x in metrics) {
-                if (x.id == metricId) { m = x; break; }
-              }
-              if (m == null) return const SizedBox.shrink(key: ValueKey('metric_null'));
-              final metric = m;
-              final selected = _selectedMetricId == metric.id;
-              return InkWell(
-                onTap: () => setState(() => _selectedMetricId = metric.id),
-                borderRadius: BorderRadius.circular(radius.xs),
-                child: Container(
-                  key: ValueKey(metric.id),
-                  margin: EdgeInsets.only(bottom: s.xs),
-                  padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
-                        : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(radius.xs),
-                    border: Border.all(
-                      color: selected ? theme.colorScheme.primary.withValues(alpha: 0.5) : theme.colorScheme.outline.withValues(alpha: 0.2),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      ReorderableDragStartListener(
-                        index: i,
-                        child: Icon(Icons.drag_handle, size: 20, color: theme.colorScheme.onSurfaceVariant),
-                      ),
-                      SizedBox(width: s.xs),
-                      Expanded(child: Text(metric.label, style: theme.textTheme.bodySmall)),
-                    ],
-                  ),
-                ),
-              );
-            },
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var i = 0; i < selectedOrdered.length; i++)
+                _buildSelectedMetricRow(selectedOrdered[i], metrics, theme, s, radius),
+            ],
           ),
         SizedBox(height: s.sm),
         Wrap(
@@ -1738,38 +1624,91 @@ class _StatisticsSectionState<T> extends State<_StatisticsSection<T>> {
               border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.15)),
             ),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: availableIds.map((metricId) {
                 UnifiedStatsMetricDefinition<T>? m;
                 for (final x in metrics) {
                   if (x.id == metricId) { m = x; break; }
                 }
-                if (m == null) return const SizedBox.shrink();
-                final metric = m;
-                return Padding(
-                  padding: EdgeInsets.only(bottom: s.xxs),
-                  child: Row(
-                    children: [
-                      Icon(Icons.add_circle_outline, size: 18, color: theme.colorScheme.onSurfaceVariant),
-                      SizedBox(width: s.xs),
-                      Expanded(child: Text(metric.label, style: theme.textTheme.bodySmall)),
-                      TextButton(
-                        onPressed: () {
-                          final next = List<String>.from(selectedOrdered)..add(metric.id);
-                          widget.controller.state = widget.controller.state.copyWithAsCustom(selectedMetricIds: next);
-                          widget.onStateChanged();
-                          setState(() {});
-                        },
-                        child: const Text('Add'),
-                      ),
-                    ],
-                  ),
-                );
+                return m != null ? _buildAvailableMetricRow(m, theme, s, radius) : const SizedBox.shrink();
               }).toList(),
             ),
           ),
+          SizedBox(height: s.xs),
+          Wrap(
+            spacing: s.xs,
+            runSpacing: s.xs,
+            children: [
+              TextButton.icon(
+                onPressed: _selectedAvailableMetricId != null ? addSelectedAvailable : null,
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Add'),
+              ),
+            ],
+          ),
         ],
       ],
+    );
+  }
+
+  Widget _buildSelectedMetricRow(String metricId, List<UnifiedStatsMetricDefinition<T>> metrics, ThemeData theme, UiV1SpacingTokens s, UiV1RadiusTokens radius) {
+    UnifiedStatsMetricDefinition<T>? m;
+    for (final x in metrics) {
+      if (x.id == metricId) { m = x; break; }
+    }
+    if (m == null) return const SizedBox.shrink();
+    final metric = m;
+    final selected = _selectedMetricId == metric.id;
+    return InkWell(
+      onTap: () => setState(() => _selectedMetricId = metric.id),
+      borderRadius: BorderRadius.circular(radius.xs),
+      child: Container(
+        margin: EdgeInsets.only(bottom: s.xs),
+        padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
+        decoration: BoxDecoration(
+          color: selected
+              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
+              : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(radius.xs),
+          border: Border.all(
+            color: selected ? theme.colorScheme.primary.withValues(alpha: 0.5) : theme.colorScheme.outline.withValues(alpha: 0.2),
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(child: Text(metric.label, style: theme.textTheme.bodySmall)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvailableMetricRow(UnifiedStatsMetricDefinition<T> metric, ThemeData theme, UiV1SpacingTokens s, UiV1RadiusTokens radius) {
+    final selected = _selectedAvailableMetricId == metric.id;
+    return InkWell(
+      onTap: () => setState(() => _selectedAvailableMetricId = metric.id),
+      borderRadius: BorderRadius.circular(radius.xs),
+      child: Container(
+        margin: EdgeInsets.only(bottom: s.xxs),
+        padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
+        decoration: BoxDecoration(
+          color: selected
+              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.4)
+              : theme.colorScheme.surface.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(radius.xs),
+          border: Border.all(
+            color: selected ? theme.colorScheme.primary.withValues(alpha: 0.4) : theme.colorScheme.outline.withValues(alpha: 0.15),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.add_circle_outline, size: 18, color: theme.colorScheme.onSurfaceVariant),
+            SizedBox(width: s.xs),
+            Expanded(child: Text(metric.label, style: theme.textTheme.bodySmall)),
+          ],
+        ),
+      ),
     );
   }
 }
