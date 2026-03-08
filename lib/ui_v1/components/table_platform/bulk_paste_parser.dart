@@ -1,4 +1,4 @@
-// Shared bulk-paste parser for filter values. Used by typed filter dialog and view panel inline filters.
+// Shared bulk-paste parser for filter values. Used by typed filter dialog.
 
 /// Parses bulk-pasted text into a list of non-empty, trimmed, deduplicated values.
 /// Supports separators: newline, comma, semicolon, tab. Order of first occurrence is preserved.

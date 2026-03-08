@@ -100,5 +100,3 @@ final List<UnifiedStatsMetricDefinition<DemoOrder>> _ordersMetrics = [
     predicate: (o) => o.status == 'Shortage',
   ),
 ];
-
-// No default saved views. Standard = config.initialState (built-in). User views in page state.

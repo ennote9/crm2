@@ -1,6 +1,6 @@
 // Unified table controller: applies search, filters, sort; produces visible rows and stats on filtered data.
 // Controller owns: search, filters, sorts, visible rows, stats, visible columns.
-// Page owns: full dataset, UI wiring, row open, presets/saved views definitions.
+// Page owns: full dataset, UI wiring, row open.
 
 import 'unified_filter_descriptor.dart';
 import 'unified_table_config.dart';
