@@ -27,6 +27,7 @@ void showUnifiedViewPanel<T>({
 }) {
   showDialog<void>(
     context: context,
+    barrierDismissible: true,
     builder: (ctx) => Dialog(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 520, maxHeight: 700),
@@ -76,29 +77,45 @@ class UnifiedViewPanelContent<T> extends StatefulWidget {
 
 class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>> {
   late int _selectedTabIndex;
+  late UnifiedTableState _draftState;
 
   @override
   void initState() {
     super.initState();
     _selectedTabIndex = widget.initialTabIndex.clamp(0, 3);
+    _draftState = widget.controller.state;
   }
 
   UnifiedTableConfig<T> get config => widget.controller.config;
-  UnifiedTableState get state => widget.controller.state;
+  /// Draft state edited inside the panel; live table uses controller.state until Apply.
+  UnifiedTableState get state => _draftState;
   List<SavedTableView> get _savedViews => widget.savedViews ?? config.savedViews;
 
-  void _applyState(UnifiedTableState next) {
-    widget.controller.state = next;
+  void _setDraft(UnifiedTableState next) {
+    setState(() => _draftState = next);
+  }
+
+  void _applyAndClose() {
+    widget.controller.state = _draftState;
     widget.onStateChanged();
-    setState(() {});
+    widget.onClose?.call();
   }
 
   void _reset() {
-    _applyState(config.initialState);
+    if (state.activeViewId == null || state.activeViewId == SavedTableView.kStandardViewId) {
+      _setDraft(config.initialState.copyWith(activeViewId: state.activeViewId));
+    } else {
+      final v = _currentView;
+      if (v != null) {
+        _setDraft(v.applyTo(config.initialState));
+      } else {
+        _setDraft(config.initialState.copyWith(activeViewId: null));
+      }
+    }
   }
 
   void _applyStandardView() {
-    _applyState(config.initialState.copyWith(activeViewId: SavedTableView.kStandardViewId));
+    _setDraft(config.initialState.copyWith(activeViewId: SavedTableView.kStandardViewId));
   }
 
   SavedTableView? get _currentView {
@@ -197,9 +214,7 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
     );
     final next = List<SavedTableView>.from(_savedViews)..add(newView);
     widget.onSavedViewsChanged!(next);
-    widget.controller.state = state.copyWith(activeViewId: newId);
-    widget.onStateChanged();
-    setState(() {});
+    _setDraft(state.copyWith(activeViewId: newId));
   }
 
   void _deleteCurrentView() {
@@ -207,7 +222,7 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
     final v = _currentView!;
     final next = _savedViews.where((x) => x.id != v.id).toList();
     widget.onSavedViewsChanged!(next);
-    _applyState(state.copyWith(activeViewId: null));
+    _setDraft(config.initialState.copyWith(activeViewId: SavedTableView.kStandardViewId));
   }
 
   void _toggleShareCurrentView() {
@@ -297,15 +312,13 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
                       items: viewDropdownItems,
                       onChanged: (id) {
                         if (id == null) {
-                          _applyState(state.copyWith(activeViewId: null));
+                          _setDraft(config.initialState.copyWith(activeViewId: null));
                         } else if (id == SavedTableView.kStandardViewId) {
                           _applyStandardView();
                         } else {
                           for (final v in _savedViews) {
                             if (v.id == id) {
-                              widget.controller.applyView(v);
-                              widget.onStateChanged();
-                              setState(() {});
+                              _setDraft(v.applyTo(config.initialState));
                               break;
                             }
                           }
@@ -393,6 +406,30 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
             child: _buildCurrentTabContent(),
           ),
         ),
+        // Bottom action bar: Cancel / Apply
+        Container(
+          padding: EdgeInsets.fromLTRB(s.md, s.sm, s.md, s.sm),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+            border: Border(top: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.2))),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: widget.onClose,
+                style: TextButton.styleFrom(minimumSize: const Size(0, 36), padding: EdgeInsets.symmetric(horizontal: s.md)),
+                child: const Text('Cancel'),
+              ),
+              SizedBox(width: s.sm),
+              FilledButton(
+                onPressed: _applyAndClose,
+                style: FilledButton.styleFrom(minimumSize: const Size(0, 36), padding: EdgeInsets.symmetric(horizontal: s.md)),
+                child: const Text('Apply'),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -416,9 +453,8 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
     );
   }
 
-  void _onSectionStateChanged() {
-    widget.onStateChanged();
-    setState(() {});
+  void _onDraftChanged(UnifiedTableState next) {
+    _setDraft(next);
   }
 
   Widget _buildCurrentTabContent() {
@@ -427,28 +463,33 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
         return _FiltersSection<T>(
           controller: widget.controller,
           fullList: widget.fullList,
-          onStateChanged: _onSectionStateChanged,
+          draftState: _draftState,
+          onDraftChanged: _onDraftChanged,
         );
       case 1:
         return _ColumnsSection<T>(
           controller: widget.controller,
-          onStateChanged: _onSectionStateChanged,
+          draftState: _draftState,
+          onDraftChanged: _onDraftChanged,
         );
       case 2:
         return _SortSection<T>(
           controller: widget.controller,
-          onStateChanged: _onSectionStateChanged,
+          draftState: _draftState,
+          onDraftChanged: _onDraftChanged,
         );
       case 3:
         return _StatisticsSection<T>(
           controller: widget.controller,
-          onStateChanged: _onSectionStateChanged,
+          draftState: _draftState,
+          onDraftChanged: _onDraftChanged,
         );
       default:
         return _FiltersSection<T>(
           controller: widget.controller,
           fullList: widget.fullList,
-          onStateChanged: _onSectionStateChanged,
+          draftState: _draftState,
+          onDraftChanged: _onDraftChanged,
         );
     }
   }
@@ -591,9 +632,19 @@ class _InlineFilterRowState<T> extends State<_InlineFilterRow<T>> {
     }
     _dateFromController = TextEditingController(text: f.value?.toString() ?? '');
     _dateToController = TextEditingController(text: f.secondaryValue?.toString() ?? '');
-    _enumSelection = f.values != null && f.values!.isNotEmpty
-        ? f.values!.map((e) => e.toString()).toSet()
-        : (f.value != null ? {f.value.toString()} : {});
+    if (mode == _FilterMode.enum_) {
+      final isSingle = f.operator == UnifiedFilterOperator.equals ||
+          f.operator == UnifiedFilterOperator.notEquals;
+      if (isSingle) {
+        _enumSelection = f.value != null ? {f.value.toString()} : {};
+      } else {
+        _enumSelection = f.values != null && f.values!.isNotEmpty
+            ? f.values!.map((e) => e.toString()).toSet()
+            : {};
+      }
+    } else {
+      _enumSelection = {};
+    }
   }
 
   @override
@@ -698,14 +749,51 @@ class _InlineFilterRowState<T> extends State<_InlineFilterRow<T>> {
                   }).toList(),
                   onChanged: (op) {
                     if (op == null) return;
-                    _emit(UnifiedFilterDescriptor(
-                      columnId: widget.descriptor.columnId,
-                      operator: op,
-                      value: widget.descriptor.value,
-                      secondaryValue: widget.descriptor.secondaryValue,
-                      values: widget.descriptor.values,
-                      id: widget.descriptor.id ?? widget.descriptor.columnId,
-                    ));
+                    final isSingleOp = op == UnifiedFilterOperator.equals ||
+                        op == UnifiedFilterOperator.notEquals;
+                    if (mode == _FilterMode.enum_) {
+                      if (isSingleOp) {
+                        final v = widget.descriptor.values != null &&
+                                widget.descriptor.values!.isNotEmpty
+                            ? widget.descriptor.values!.first.toString()
+                            : widget.descriptor.value?.toString();
+                        _emit(UnifiedFilterDescriptor(
+                          columnId: widget.descriptor.columnId,
+                          operator: op,
+                          value: v,
+                          id: widget.descriptor.id ?? widget.descriptor.columnId,
+                        ));
+                      } else {
+                        final list = widget.descriptor.values != null &&
+                                widget.descriptor.values!.isNotEmpty
+                            ? List<dynamic>.from(widget.descriptor.values!)
+                            : (widget.descriptor.value != null
+                                ? [widget.descriptor.value]
+                                : <dynamic>[]);
+                        _emit(UnifiedFilterDescriptor(
+                          columnId: widget.descriptor.columnId,
+                          operator: op,
+                          values: list,
+                          id: widget.descriptor.id ?? widget.descriptor.columnId,
+                        ));
+                      }
+                    } else if (mode == _FilterMode.date && op != UnifiedFilterOperator.between) {
+                      _emit(UnifiedFilterDescriptor(
+                        columnId: widget.descriptor.columnId,
+                        operator: op,
+                        value: widget.descriptor.value,
+                        id: widget.descriptor.id ?? widget.descriptor.columnId,
+                      ));
+                    } else {
+                      _emit(UnifiedFilterDescriptor(
+                        columnId: widget.descriptor.columnId,
+                        operator: op,
+                        value: widget.descriptor.value,
+                        secondaryValue: widget.descriptor.secondaryValue,
+                        values: widget.descriptor.values,
+                        id: widget.descriptor.id ?? widget.descriptor.columnId,
+                      ));
+                    }
                   },
                 ),
               ),
@@ -724,11 +812,17 @@ class _InlineFilterRowState<T> extends State<_InlineFilterRow<T>> {
           if (_needsValue) ...[
             SizedBox(height: s.sm),
             Container(
-              padding: EdgeInsets.all(s.sm),
+              width: double.infinity,
+              padding: EdgeInsets.fromLTRB(s.sm, s.sm, s.sm, s.sm),
               decoration: BoxDecoration(
-                color: theme.colorScheme.surface.withValues(alpha: 0.6),
-                borderRadius: BorderRadius.circular(tokens.radius.xs),
-                border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.12)),
+                color: theme.colorScheme.surface.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(tokens.radius.xs),
+                  bottomRight: Radius.circular(tokens.radius.xs),
+                ),
+                border: Border(
+                  top: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.2)),
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -824,16 +918,23 @@ class _InlineFilterRowState<T> extends State<_InlineFilterRow<T>> {
         : options.where((v) => v.toLowerCase().contains(_enumSearch.trim().toLowerCase())).toList();
 
     if (single) {
+      final singleValue = _enumSelection.isEmpty ? null : _enumSelection.first;
+      final dropdownItems = options.isEmpty && singleValue != null
+          ? <DropdownMenuItem<String>>[DropdownMenuItem(value: singleValue, child: Text(singleValue))]
+          : options.map((v) => DropdownMenuItem(value: v, child: Text(v))).toList();
+      if (singleValue != null && !options.contains(singleValue) && options.isNotEmpty) {
+        dropdownItems.insert(0, DropdownMenuItem(value: singleValue, child: Text(singleValue)));
+      }
       return [
         DropdownButtonFormField<String>(
-          initialValue: _enumSelection.isEmpty ? null : _enumSelection.single,
+          initialValue: singleValue,
           decoration: InputDecoration(
             isDense: true,
             labelText: 'Value',
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(tokens.radius.sm)),
             contentPadding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
           ),
-          items: options.map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+          items: dropdownItems,
           onChanged: (v) {
             if (v == null) return;
             _enumSelection = {v};
@@ -872,7 +973,7 @@ class _InlineFilterRowState<T> extends State<_InlineFilterRow<T>> {
     return [
       Container(
         decoration: BoxDecoration(
-          color: theme.colorScheme.surface.withValues(alpha: 0.6),
+          color: theme.colorScheme.surface.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(tokens.radius.xs),
           border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.2)),
         ),
@@ -885,6 +986,16 @@ class _InlineFilterRowState<T> extends State<_InlineFilterRow<T>> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(tokens.radius.xs)),
           childrenPadding: EdgeInsets.only(left: s.xs, right: s.xs, bottom: s.sm),
           children: [
+            TextField(
+              decoration: InputDecoration(
+                hintText: 'Search…',
+                isDense: true,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(tokens.radius.xs)),
+                contentPadding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xxs),
+              ),
+              onChanged: (v) => setState(() => _enumSearch = v),
+            ),
+            SizedBox(height: s.xs),
             Row(
               children: [
                 TextButton(
@@ -907,19 +1018,9 @@ class _InlineFilterRowState<T> extends State<_InlineFilterRow<T>> {
                 ),
               ],
             ),
-            SizedBox(height: s.xxs),
-            TextField(
-              decoration: InputDecoration(
-                hintText: 'Search…',
-                isDense: true,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(tokens.radius.xs)),
-                contentPadding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xxs),
-              ),
-              onChanged: (v) => setState(() => _enumSearch = v),
-            ),
             SizedBox(height: s.xs),
             ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 180),
+              constraints: const BoxConstraints(maxHeight: 200),
               child: ListView.builder(
                 shrinkWrap: true,
                 itemCount: filtered.length,
@@ -1045,12 +1146,14 @@ class _FiltersSection<T> extends StatelessWidget {
   const _FiltersSection({
     required this.controller,
     required this.fullList,
-    required this.onStateChanged,
+    required this.draftState,
+    required this.onDraftChanged,
   });
 
   final UnifiedTableController<T> controller;
   final List<T> fullList;
-  final VoidCallback onStateChanged;
+  final UnifiedTableState draftState;
+  final void Function(UnifiedTableState) onDraftChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1059,7 +1162,7 @@ class _FiltersSection<T> extends StatelessWidget {
     final s = tokens.spacing;
     final radius = tokens.radius;
     final config = controller.config;
-    final filters = controller.state.filters;
+    final filters = draftState.filters;
     final filterableColumns = config.columns.where((c) => c.filterable && c.valueGetter != null).toList();
     final filterableColumnIds = filterableColumns.map((c) => c.id).toList();
 
@@ -1112,15 +1215,13 @@ class _FiltersSection<T> extends StatelessWidget {
                 filterableColumnIds: filterableColumnIds,
                 onChanged: (d) {
                   if (d == null) {
-                    controller.state = controller.state.removeFilter(filterId: f.identity);
+                    onDraftChanged(draftState.removeFilter(filterId: f.identity));
                   } else {
-                    controller.state = controller.state.addOrReplaceFilter(d);
+                    onDraftChanged(draftState.addOrReplaceFilter(d));
                   }
-                  onStateChanged();
                 },
                 onRemove: () {
-                  controller.state = controller.state.removeFilter(filterId: f.identity);
-                  onStateChanged();
+                  onDraftChanged(draftState.removeFilter(filterId: f.identity));
                 },
               ),
             );
@@ -1140,8 +1241,7 @@ class _FiltersSection<T> extends StatelessWidget {
                 if (filters.isNotEmpty)
                   TextButton(
                     onPressed: () {
-                      controller.state = controller.state.clearFilters();
-                      onStateChanged();
+                      onDraftChanged(draftState.clearFilters());
                     },
                     style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
                     child: Text(
@@ -1154,12 +1254,11 @@ class _FiltersSection<T> extends StatelessWidget {
                   onPressed: () {
                     final first = filterableColumns.first;
                     final mode = _effectiveFilterMode(first);
-                    controller.state = controller.state.addOrReplaceFilter(UnifiedFilterDescriptor(
+                    onDraftChanged(draftState.addOrReplaceFilter(UnifiedFilterDescriptor(
                       columnId: first.id,
                       operator: _defaultOperator(mode),
                       id: 'f_${DateTime.now().millisecondsSinceEpoch}',
-                    ));
-                    onStateChanged();
+                    )));
                   },
                   icon: const Icon(Icons.add, size: 18),
                   label: const Text('Add condition'),
@@ -1177,11 +1276,13 @@ class _FiltersSection<T> extends StatelessWidget {
 class _ColumnsSection<T> extends StatefulWidget {
   const _ColumnsSection({
     required this.controller,
-    required this.onStateChanged,
+    required this.draftState,
+    required this.onDraftChanged,
   });
 
   final UnifiedTableController<T> controller;
-  final VoidCallback onStateChanged;
+  final UnifiedTableState draftState;
+  final void Function(UnifiedTableState) onDraftChanged;
 
   @override
   State<_ColumnsSection<T>> createState() => _ColumnsSectionState<T>();
@@ -1196,8 +1297,8 @@ class _ColumnsSectionState<T> extends State<_ColumnsSection<T>> {
     final tokens = Theme.of(context).brightness == Brightness.dark ? UiV1Tokens.dark : UiV1Tokens.light;
     final s = tokens.spacing;
     final config = widget.controller.config;
-    final order = widget.controller.state.columnOrder ?? config.columns.map((c) => c.id).toList();
-    final visibleIds = widget.controller.state.visibleColumnIds?.toSet() ?? config.columns.map((c) => c.id).toSet();
+    final order = widget.draftState.columnOrder ?? config.columns.map((c) => c.id).toList();
+    final visibleIds = widget.draftState.visibleColumnIds?.toSet() ?? config.columns.map((c) => c.id).toSet();
     final visibleOrdered = order.where((id) => visibleIds.contains(id)).toList();
     final hiddenIds = order.where((id) => !visibleIds.contains(id)).toList();
     final defaultOrder = config.defaultVisibleColumnIds ?? config.columns.map((c) => c.id).toList();
@@ -1210,11 +1311,10 @@ class _ColumnsSectionState<T> extends State<_ColumnsSection<T>> {
       if (!selectedInVisible || selectedIndex <= 0) return;
       final next = List<String>.from(visibleOrdered);
       next.insert(selectedIndex - 1, next.removeAt(selectedIndex));
-      widget.controller.state = widget.controller.state.copyWithAsCustom(
+      widget.onDraftChanged(widget.draftState.copyWithAsCustom(
         columnOrder: next + hiddenIds,
         visibleColumnIds: next,
-      );
-      widget.onStateChanged();
+      ));
       setState(() {});
     }
 
@@ -1222,11 +1322,10 @@ class _ColumnsSectionState<T> extends State<_ColumnsSection<T>> {
       if (!selectedInVisible || selectedIndex < 0 || selectedIndex >= visibleOrdered.length - 1) return;
       final next = List<String>.from(visibleOrdered);
       next.insert(selectedIndex + 1, next.removeAt(selectedIndex));
-      widget.controller.state = widget.controller.state.copyWithAsCustom(
+      widget.onDraftChanged(widget.draftState.copyWithAsCustom(
         columnOrder: next + hiddenIds,
         visibleColumnIds: next,
-      );
-      widget.onStateChanged();
+      ));
       setState(() {});
     }
 
@@ -1237,11 +1336,10 @@ class _ColumnsSectionState<T> extends State<_ColumnsSection<T>> {
       final next = visibleIds.where((id) => id != _selectedColumnId).toSet();
       if (next.isEmpty) return;
       final visibleOrderedNew = order.where((id) => next.contains(id)).toList();
-      widget.controller.state = widget.controller.state.copyWithAsCustom(
+      widget.onDraftChanged(widget.draftState.copyWithAsCustom(
         visibleColumnIds: visibleOrderedNew,
         columnOrder: order,
-      );
-      widget.onStateChanged();
+      ));
       setState(() => _selectedColumnId = null);
     }
 
@@ -1249,11 +1347,10 @@ class _ColumnsSectionState<T> extends State<_ColumnsSection<T>> {
       if (!selectedInHidden || _selectedColumnId == null) return;
       final next = Set<String>.from(visibleIds)..add(_selectedColumnId!);
       final visibleOrderedNew = order.where((id) => next.contains(id)).toList();
-      widget.controller.state = widget.controller.state.copyWithAsCustom(
+      widget.onDraftChanged(widget.draftState.copyWithAsCustom(
         visibleColumnIds: visibleOrderedNew,
         columnOrder: order,
-      );
-      widget.onStateChanged();
+      ));
       setState(() => _selectedColumnId = null);
     }
 
@@ -1335,11 +1432,10 @@ class _ColumnsSectionState<T> extends State<_ColumnsSection<T>> {
               ),
               TextButton(
                 onPressed: () {
-                  widget.controller.state = widget.controller.state.copyWithAsCustom(
+                  widget.onDraftChanged(widget.draftState.copyWithAsCustom(
                     visibleColumnIds: List.from(defaultOrder),
                     columnOrder: List.from(defaultOrder),
-                  );
-                  widget.onStateChanged();
+                  ));
                   setState(() => _selectedColumnId = null);
                 },
                 style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
@@ -1430,11 +1526,10 @@ class _ColumnsSectionState<T> extends State<_ColumnsSection<T>> {
               onPressed: () {
                 final next = Set<String>.from(visibleIds)..add(columnId);
                 final visibleOrderedNew = order.where((id) => next.contains(id)).toList();
-                widget.controller.state = widget.controller.state.copyWithAsCustom(
+                widget.onDraftChanged(widget.draftState.copyWithAsCustom(
                   visibleColumnIds: visibleOrderedNew,
                   columnOrder: order,
-                );
-                widget.onStateChanged();
+                ));
                 if (_selectedColumnId == columnId) _selectedColumnId = null;
                 setState(() {});
               },
@@ -1493,11 +1588,13 @@ class _ColumnsSectionState<T> extends State<_ColumnsSection<T>> {
 class _SortSection<T> extends StatefulWidget {
   const _SortSection({
     required this.controller,
-    required this.onStateChanged,
+    required this.draftState,
+    required this.onDraftChanged,
   });
 
   final UnifiedTableController<T> controller;
-  final VoidCallback onStateChanged;
+  final UnifiedTableState draftState;
+  final void Function(UnifiedTableState) onDraftChanged;
 
   @override
   State<_SortSection<T>> createState() => _SortSectionState<T>();
@@ -1512,7 +1609,7 @@ class _SortSectionState<T> extends State<_SortSection<T>> {
     final tokens = Theme.of(context).brightness == Brightness.dark ? UiV1Tokens.dark : UiV1Tokens.light;
     final s = tokens.spacing;
     final config = widget.controller.config;
-    final sorts = widget.controller.state.sorts;
+    final sorts = widget.draftState.sorts;
     final sortableColumns = config.columns.where((c) => c.sortable && c.valueGetter != null).toList();
     final radius = tokens.radius;
     final availableForSort = sortableColumns.where((c) => !sorts.any((x) => x.columnId == c.id)).toList();
@@ -1521,16 +1618,14 @@ class _SortSectionState<T> extends State<_SortSection<T>> {
     void addRule(String columnId) {
       if (sorts.any((x) => x.columnId == columnId)) return;
       final next = List<UnifiedSortDescriptor>.from(sorts)..add(UnifiedSortDescriptor(columnId: columnId, ascending: true));
-      widget.controller.state = widget.controller.state.copyWithAsCustom(sorts: next);
-      widget.onStateChanged();
+      widget.onDraftChanged(widget.draftState.copyWithAsCustom(sorts: next));
       setState(() {});
     }
 
     void removeSelected() {
       if (!hasSelection) return;
       final next = sorts.where((x) => x.columnId != sorts[_selectedSortIndex!].columnId).toList();
-      widget.controller.state = widget.controller.state.copyWithAsCustom(sorts: next);
-      widget.onStateChanged();
+      widget.onDraftChanged(widget.draftState.copyWithAsCustom(sorts: next));
       setState(() => _selectedSortIndex = null);
     }
 
@@ -1538,8 +1633,7 @@ class _SortSectionState<T> extends State<_SortSection<T>> {
       if (!hasSelection || _selectedSortIndex! <= 0) return;
       final next = List<UnifiedSortDescriptor>.from(sorts);
       next.insert(_selectedSortIndex! - 1, next.removeAt(_selectedSortIndex!));
-      widget.controller.state = widget.controller.state.copyWithAsCustom(sorts: next);
-      widget.onStateChanged();
+      widget.onDraftChanged(widget.draftState.copyWithAsCustom(sorts: next));
       setState(() => _selectedSortIndex = _selectedSortIndex! - 1);
     }
 
@@ -1547,8 +1641,7 @@ class _SortSectionState<T> extends State<_SortSection<T>> {
       if (!hasSelection || _selectedSortIndex! >= sorts.length - 1) return;
       final next = List<UnifiedSortDescriptor>.from(sorts);
       next.insert(_selectedSortIndex! + 1, next.removeAt(_selectedSortIndex!));
-      widget.controller.state = widget.controller.state.copyWithAsCustom(sorts: next);
-      widget.onStateChanged();
+      widget.onDraftChanged(widget.draftState.copyWithAsCustom(sorts: next));
       setState(() => _selectedSortIndex = _selectedSortIndex! + 1);
     }
 
@@ -1557,8 +1650,7 @@ class _SortSectionState<T> extends State<_SortSection<T>> {
       final next = List<UnifiedSortDescriptor>.from(sorts);
       final sort = next[_selectedSortIndex!];
       next[_selectedSortIndex!] = UnifiedSortDescriptor(columnId: sort.columnId, ascending: !sort.ascending);
-      widget.controller.state = widget.controller.state.copyWithAsCustom(sorts: next);
-      widget.onStateChanged();
+      widget.onDraftChanged(widget.draftState.copyWithAsCustom(sorts: next));
       setState(() {});
     }
 
@@ -1732,11 +1824,13 @@ class _SortSectionState<T> extends State<_SortSection<T>> {
 class _StatisticsSection<T> extends StatefulWidget {
   const _StatisticsSection({
     required this.controller,
-    required this.onStateChanged,
+    required this.draftState,
+    required this.onDraftChanged,
   });
 
   final UnifiedTableController<T> controller;
-  final VoidCallback onStateChanged;
+  final UnifiedTableState draftState;
+  final void Function(UnifiedTableState) onDraftChanged;
 
   @override
   State<_StatisticsSection<T>> createState() => _StatisticsSectionState<T>();
@@ -1752,8 +1846,8 @@ class _StatisticsSectionState<T> extends State<_StatisticsSection<T>> {
     final tokens = Theme.of(context).brightness == Brightness.dark ? UiV1Tokens.dark : UiV1Tokens.light;
     final s = tokens.spacing;
     final config = widget.controller.config;
-    final statsVisible = widget.controller.state.statsVisible;
-    final selectedIds = widget.controller.state.selectedMetricIds;
+    final statsVisible = widget.draftState.statsVisible;
+    final selectedIds = widget.draftState.selectedMetricIds;
     final metrics = config.availableMetrics;
     final effectiveSelected = selectedIds.isEmpty ? metrics.map((x) => x.id).toList() : selectedIds;
     final selectedOrdered = effectiveSelected.where((id) => metrics.any((m) => m.id == id)).toList();
@@ -1766,8 +1860,7 @@ class _StatisticsSectionState<T> extends State<_StatisticsSection<T>> {
       if (!hasSelection || selectedIndex <= 0) return;
       final next = List<String>.from(selectedOrdered);
       next.insert(selectedIndex - 1, next.removeAt(selectedIndex));
-      widget.controller.state = widget.controller.state.copyWithAsCustom(selectedMetricIds: next);
-      widget.onStateChanged();
+      widget.onDraftChanged(widget.draftState.copyWithAsCustom(selectedMetricIds: next));
       setState(() {});
     }
 
@@ -1775,8 +1868,7 @@ class _StatisticsSectionState<T> extends State<_StatisticsSection<T>> {
       if (!hasSelection || selectedIndex >= selectedOrdered.length - 1) return;
       final next = List<String>.from(selectedOrdered);
       next.insert(selectedIndex + 1, next.removeAt(selectedIndex));
-      widget.controller.state = widget.controller.state.copyWithAsCustom(selectedMetricIds: next);
-      widget.onStateChanged();
+      widget.onDraftChanged(widget.draftState.copyWithAsCustom(selectedMetricIds: next));
       setState(() {});
     }
 
@@ -1784,16 +1876,14 @@ class _StatisticsSectionState<T> extends State<_StatisticsSection<T>> {
       if (!hasSelection || _selectedMetricId == null) return;
       var next = List<String>.from(selectedOrdered)..remove(_selectedMetricId);
       if (next.isEmpty && metrics.isNotEmpty) next = [metrics.first.id];
-      widget.controller.state = widget.controller.state.copyWithAsCustom(selectedMetricIds: next);
-      widget.onStateChanged();
+      widget.onDraftChanged(widget.draftState.copyWithAsCustom(selectedMetricIds: next));
       setState(() => _selectedMetricId = null);
     }
 
     void addSelectedAvailable() {
       if (_selectedAvailableMetricId == null || selectedOrdered.contains(_selectedAvailableMetricId)) return;
       final next = List<String>.from(selectedOrdered)..add(_selectedAvailableMetricId!);
-      widget.controller.state = widget.controller.state.copyWithAsCustom(selectedMetricIds: next);
-      widget.onStateChanged();
+      widget.onDraftChanged(widget.draftState.copyWithAsCustom(selectedMetricIds: next));
       setState(() => _selectedAvailableMetricId = null);
     }
 
@@ -1823,8 +1913,7 @@ class _StatisticsSectionState<T> extends State<_StatisticsSection<T>> {
               Switch(
                 value: statsVisible,
                 onChanged: (v) {
-                  widget.controller.state = widget.controller.state.copyWithAsCustom(statsVisible: v);
-                  widget.onStateChanged();
+                  widget.onDraftChanged(widget.draftState.copyWithAsCustom(statsVisible: v));
                   setState(() {});
                 },
               ),
