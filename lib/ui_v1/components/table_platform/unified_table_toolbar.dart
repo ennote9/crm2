@@ -1,4 +1,4 @@
-// Unified table toolbar for Table Platform v1. Search, Filters, View, extra actions, Show stats.
+// Unified table toolbar for Table Platform v1. Search, Filters, extra actions, Show stats.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,8 +8,7 @@ import '../../theme/density.dart';
 import '../../theme/tokens.dart';
 import 'filter_state_summary.dart';
 
-/// Toolbar: search field, Filters button, View (panel or dropdown), extra actions, optional Show stats toggle.
-/// When [onViewPanelTap] is set, "View" opens the unified view panel and view dropdown + stats toggle are hidden.
+/// Toolbar: search field, Filters button, extra actions, optional Show stats toggle.
 class UnifiedTableToolbar extends StatelessWidget {
   const UnifiedTableToolbar({
     super.key,
@@ -20,14 +19,9 @@ class UnifiedTableToolbar extends StatelessWidget {
     this.searchHint = 'Search…',
     required this.filterChips,
     this.onFiltersTap,
-    this.viewOptions = const [],
-    this.currentViewId,
-    this.onViewSelected,
-    this.onReset,
     this.extraActions,
     this.statsVisible = false,
     this.onStatsVisibleChanged,
-    this.onViewPanelTap,
   });
 
   final TextEditingController searchController;
@@ -36,17 +30,10 @@ class UnifiedTableToolbar extends StatelessWidget {
   final VoidCallback onSearchClear;
   final String searchHint;
   final List<UnifiedFilterChipItem> filterChips;
-  /// When [onViewPanelTap] is set, Filters button is hidden (filters are in View panel).
   final VoidCallback? onFiltersTap;
-  final List<({String id, String label})> viewOptions;
-  final String? currentViewId;
-  final void Function(String? viewId)? onViewSelected;
-  final VoidCallback? onReset;
   final Widget? extraActions;
   final bool statsVisible;
   final ValueChanged<bool>? onStatsVisibleChanged;
-  /// When set, "View" button opens unified view panel; view dropdown and stats toggle are not shown.
-  final VoidCallback? onViewPanelTap;
 
   static const double _inputHeight = 32;
 
@@ -145,47 +132,12 @@ class UnifiedTableToolbar extends StatelessWidget {
                       ),
                     ),
                   if (onFiltersTap != null) SizedBox(width: s.sm),
-                  if (onViewPanelTap != null) ...[
-                    FilledButton.tonal(
-                      onPressed: onViewPanelTap,
-                      style: FilledButton.styleFrom(
-                        minimumSize: Size(0, density.buttonHeight),
-                        padding: EdgeInsets.symmetric(horizontal: s.sm),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(UiIcons.view, size: 20),
-                          SizedBox(width: 6),
-                          Text('View'),
-                        ],
-                      ),
-                    ),
-                  ] else if (viewOptions.isNotEmpty && onViewSelected != null) ...[
-                    _ViewDropdown(
-                      options: viewOptions,
-                      currentId: currentViewId,
-                      onSelected: onViewSelected!,
-                      buttonHeight: density.buttonHeight,
-                    ),
-                  ],
-                  if (onReset != null) ...[
-                    SizedBox(width: s.sm),
-                    TextButton(
-                      onPressed: onReset,
-                      style: TextButton.styleFrom(
-                        minimumSize: Size(0, density.buttonHeight),
-                        padding: EdgeInsets.symmetric(horizontal: s.xs),
-                      ),
-                      child: const Text('Reset'),
-                    ),
-                  ],
                   if (extraActions != null) ...[
                     SizedBox(width: s.sm),
                     extraActions!,
                   ],
                   const Spacer(),
-                  if (onViewPanelTap == null && onStatsVisibleChanged != null)
+                  if (onStatsVisibleChanged != null)
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -222,53 +174,6 @@ class UnifiedTableToolbar extends StatelessWidget {
               ],
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ViewDropdown extends StatelessWidget {
-  const _ViewDropdown({
-    required this.options,
-    required this.currentId,
-    required this.onSelected,
-    required this.buttonHeight,
-  });
-
-  final List<({String id, String label})> options;
-  final String? currentId;
-  final void Function(String? id) onSelected;
-  final double buttonHeight;
-
-  @override
-  Widget build(BuildContext context) {
-    String currentLabel = 'All';
-    if (currentId != null) {
-      for (final o in options) {
-        if (o.id == currentId) {
-          currentLabel = o.label;
-          break;
-        }
-      }
-    }
-    return PopupMenuButton<String?>(
-      onSelected: onSelected,
-      itemBuilder: (context) => [
-        const PopupMenuItem<String?>(value: null, child: Text('All')),
-        ...options.map((o) => PopupMenuItem<String?>(value: o.id, child: Text(o.label))),
-      ],
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(UiIcons.view, size: 20),
-            const SizedBox(width: 4),
-            Text('View: $currentLabel'),
-            const SizedBox(width: 4),
-            const Icon(UiIcons.arrowDropDown, size: 20),
-          ],
         ),
       ),
     );

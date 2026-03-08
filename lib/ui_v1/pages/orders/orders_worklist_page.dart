@@ -9,14 +9,13 @@ import '../../components/table_platform/index.dart';
 import '../../demo_data/demo_data.dart';
 import '../../icons/ui_icons.dart';
 import '../../theme/density.dart';
-import '../../theme/tokens.dart';
 import '../order_details/order_details_page.dart';
 import 'orders_table_config.dart';
 
 const double _kBreakpointCardList = 850;
 const double _kBreakpointUltraNarrow = 360;
 
-/// Orders list via Unified Table Platform: toolbar, stats, grid, saved views, current-view metrics.
+/// Orders list via Unified Table Platform: toolbar, stats, grid.
 class OrdersWorklistPage extends StatefulWidget {
   const OrdersWorklistPage({super.key, this.initialProductSku});
 
@@ -31,7 +30,6 @@ class _OrdersWorklistPageState extends State<OrdersWorklistPage> {
   Set<String> _selectedIds = {};
   late TextEditingController _searchController;
   late FocusNode _searchFocusNode;
-  late List<SavedTableView> _savedViews;
 
   @override
   void initState() {
@@ -39,7 +37,6 @@ class _OrdersWorklistPageState extends State<OrdersWorklistPage> {
     _controller = UnifiedTableController<DemoOrder>(
       config: createOrdersTableConfig(_openOrderDetails),
     );
-    _savedViews = [];
     _searchController = TextEditingController(text: _controller.state.searchQuery);
     _searchFocusNode = FocusNode();
   }
@@ -89,45 +86,26 @@ class _OrdersWorklistPageState extends State<OrdersWorklistPage> {
     setState(() {});
   }
 
-  void _onViewPanelTap() {
-    final media = MediaQuery.of(context);
-    final tokens = Theme.of(context).brightness == Brightness.dark
-        ? UiV1Tokens.dark
-        : UiV1Tokens.light;
-    final maxW = 1100.0.clamp(400.0, media.size.width - 48);
-    final maxH = (media.size.height * 0.88).clamp(400.0, media.size.height - 48);
-
-    showDialog<void>(
+  void _onFiltersTap() {
+    final config = _controller.config;
+    final filterable = config.columns.where((c) => c.filterable && c.valueGetter != null).toList();
+    if (filterable.isEmpty) return;
+    final column = filterable.first;
+    final list = _controller.state.filters.where((f) => f.columnId == column.id).toList();
+    final existing = list.isNotEmpty ? list.first : null;
+    showUnifiedTypedFilterDialog<DemoOrder>(
       context: context,
-      barrierDismissible: true,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-        child: Material(
-          borderRadius: BorderRadius.circular(tokens.radius.lg),
-          color: Theme.of(ctx).colorScheme.surface,
-          clipBehavior: Clip.antiAlias,
-          child: Container(
-            constraints: BoxConstraints(maxWidth: maxW, maxHeight: maxH),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(tokens.radius.lg),
-              border: Border.all(
-                color: Theme.of(ctx).colorScheme.outline.withValues(alpha: 0.2),
-              ),
-            ),
-            child: UnifiedViewPanelContent<DemoOrder>(
-              controller: _controller,
-              fullList: _fullList,
-              onStateChanged: () => setState(() {}),
-              savedViews: _savedViews,
-              onSavedViewsChanged: (list) => setState(() => _savedViews = list),
-              onClose: () => Navigator.of(ctx).pop(),
-              currentUserId: currentUserStore.currentUser.userId,
-              currentUserDisplayName: currentUserStore.currentUser.fullName,
-            ),
-          ),
-        ),
-      ),
+      column: column,
+      fullList: _fullList,
+      currentFilter: existing,
+      onApply: (d) {
+        if (d != null) {
+          _controller.state = _controller.state.addOrReplaceFilter(d);
+        } else {
+          _controller.state = _controller.state.removeFilter(columnId: column.id);
+        }
+        setState(() {});
+      },
     );
   }
 
@@ -219,8 +197,8 @@ class _OrdersWorklistPageState extends State<OrdersWorklistPage> {
                 onSearchClear: _onSearchClear,
                 searchHint: 'Search order no, warehouse, status…',
                 filterChips: _filterChips,
-                onViewPanelTap: _onViewPanelTap,
-              extraActions: widget.initialProductSku != null
+                onFiltersTap: _onFiltersTap,
+                extraActions: widget.initialProductSku != null
                   ? Padding(
                       padding: const EdgeInsets.only(left: 8),
                       child: Text(
@@ -228,11 +206,15 @@ class _OrdersWorklistPageState extends State<OrdersWorklistPage> {
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: Theme.of(context).colorScheme.onSurfaceVariant,
                             ),
-                      ),
-                    )
+                    ),
+                  )
                   : null,
-              statsVisible: _controller.state.statsVisible,
-            ),
+                statsVisible: _controller.state.statsVisible,
+                onStatsVisibleChanged: (v) {
+                  _controller.state = _controller.state.copyWithAsCustom(statsVisible: v);
+                  setState(() {});
+                },
+              ),
             if (_controller.state.statsVisible) ...[
               UnifiedStatsPanel<DemoOrder>(
                 metricDefinitions: _controller.config.availableMetrics,

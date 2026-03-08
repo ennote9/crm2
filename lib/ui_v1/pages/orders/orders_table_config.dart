@@ -21,7 +21,6 @@ UnifiedTableConfig<DemoOrder> createOrdersTableConfig(void Function(DemoOrder) r
     availableMetrics: _ordersMetrics,
     defaultMetricIds: const ['total', 'inProgress', 'onHold', 'shortage'],
     rowOpen: rowOpen,
-    savedViews: const [],
   );
 }
 

@@ -1,4 +1,4 @@
-// Unified table state for Table Platform v1. Holds search, filters, sort, columns, density, stats, view.
+// Unified table state for Table Platform v1. Holds search, filters, sort, columns, density, stats.
 
 import 'unified_filter_descriptor.dart';
 
@@ -26,7 +26,6 @@ class UnifiedTableState {
     this.density = UnifiedTableDensity.dense,
     this.statsVisible = false,
     this.selectedMetricIds = const [],
-    this.activeViewId,
   });
 
   final String searchQuery;
@@ -40,8 +39,6 @@ class UnifiedTableState {
   final UnifiedTableDensity density;
   final bool statsVisible;
   final List<String> selectedMetricIds;
-  /// Id of active saved view. Set when a SavedTableView is applied; cleared when user changes filters/sorts/columns/density/metrics/stats.
-  final String? activeViewId;
 
   UnifiedTableState copyWith({
     String? searchQuery,
@@ -52,7 +49,6 @@ class UnifiedTableState {
     UnifiedTableDensity? density,
     bool? statsVisible,
     List<String>? selectedMetricIds,
-    String? activeViewId,
   }) {
     return UnifiedTableState(
       searchQuery: searchQuery ?? this.searchQuery,
@@ -63,12 +59,10 @@ class UnifiedTableState {
       density: density ?? this.density,
       statsVisible: statsVisible ?? this.statsVisible,
       selectedMetricIds: selectedMetricIds ?? this.selectedMetricIds,
-      activeViewId: activeViewId ?? this.activeViewId,
     );
   }
 
   /// Use when the user manually changes state (filters, sorts, columns, density, metrics, stats visibility).
-  /// Returns new state with [activeViewId] = null (custom mode). Use [copyWith] only when applying a saved view.
   UnifiedTableState copyWithAsCustom({
     String? searchQuery,
     List<UnifiedFilterDescriptor>? filters,
@@ -88,7 +82,6 @@ class UnifiedTableState {
       density: density ?? this.density,
       statsVisible: statsVisible ?? this.statsVisible,
       selectedMetricIds: selectedMetricIds ?? this.selectedMetricIds,
-      activeViewId: null,
     );
   }
 

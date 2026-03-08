@@ -1,6 +1,5 @@
 // Unified table config for Table Platform v1. Pass columns, search fields, defaults, metrics, row open.
 
-import 'saved_table_view.dart';
 import 'unified_stats_metric.dart';
 import 'unified_table_column.dart';
 import 'unified_table_state.dart';
@@ -19,7 +18,6 @@ class UnifiedTableConfig<T> {
     this.availableMetrics = const [],
     this.defaultMetricIds = const [],
     this.rowOpen,
-    this.savedViews = const [],
   });
 
   final String tableId;
@@ -34,7 +32,6 @@ class UnifiedTableConfig<T> {
   final List<UnifiedStatsMetricDefinition<T>> availableMetrics;
   final List<String> defaultMetricIds;
   final void Function(T)? rowOpen;
-  final List<SavedTableView> savedViews;
 
   /// Initial state from this config.
   UnifiedTableState get initialState => UnifiedTableState(
@@ -46,6 +43,5 @@ class UnifiedTableConfig<T> {
         density: defaultDensity,
         statsVisible: defaultStatsVisible,
         selectedMetricIds: List.from(defaultMetricIds),
-        activeViewId: null,
       );
 }

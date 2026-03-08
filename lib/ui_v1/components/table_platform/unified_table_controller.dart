@@ -6,7 +6,6 @@ import 'unified_filter_descriptor.dart';
 import 'unified_table_config.dart';
 import 'unified_table_state.dart';
 import 'unified_table_column.dart';
-import 'saved_table_view.dart';
 
 /// Controller applies search -> filters -> sort; visible rows = result; stats = on that result only.
 class UnifiedTableController<T> {
@@ -181,16 +180,5 @@ class UnifiedTableController<T> {
       if (m.id == metricId) return m.format(value);
     }
     return value.toString();
-  }
-
-  /// Apply a saved view. Sets state with view's settings and activeViewId = view.id.
-  void applyView(SavedTableView view) {
-    if (view.tableId != config.tableId) return;
-    state = view.applyTo(state);
-  }
-
-  /// Call when user changes filters/sorts/columns/density/metrics/stats. Clears activeViewId (custom state).
-  void markStateAsCustom() {
-    state = state.copyWith(activeViewId: null);
   }
 }
