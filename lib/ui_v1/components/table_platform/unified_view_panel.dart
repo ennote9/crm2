@@ -1692,7 +1692,7 @@ class _SortSectionState<T> extends State<_SortSection<T>> {
       if (sorts.any((x) => x.columnId == columnId)) return;
       final next = List<UnifiedSortDescriptor>.from(sorts)..add(UnifiedSortDescriptor(columnId: columnId, ascending: true));
       widget.onDraftChanged(widget.draftState.copyWithAsCustom(sorts: next));
-      setState(() {});
+      setState(() => _selectedSortIndex = next.length - 1);
     }
 
     void removeSelected() {
@@ -1784,36 +1784,40 @@ class _SortSectionState<T> extends State<_SortSection<T>> {
             spacing: s.xs,
             runSpacing: s.xs,
             children: [
-              if (sortableColumns.isNotEmpty && availableForSort.isNotEmpty)
-                PopupMenuButton<String>(
-                  offset: const Offset(0, 40),
-                  itemBuilder: (ctx) => availableForSort.map((c) => PopupMenuItem(value: c.id, child: Text(c.label))).toList(),
-                  onSelected: addRule,
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.add, size: 18, color: theme.colorScheme.onSecondaryContainer),
-                        SizedBox(width: 6),
-                        Text('Add rule', style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.onSecondaryContainer)),
-                      ],
-                    ),
-                  ),
-                )
-              else
-                FilledButton.tonal(
-                  onPressed: null,
-                  style: FilledButton.styleFrom(minimumSize: const Size(0, 32)),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.add, size: 18),
-                      SizedBox(width: 6),
-                      Text('Add rule'),
-                    ],
-                  ),
-                ),
+              Builder(
+                builder: (btnContext) {
+                  final canAdd = sortableColumns.isNotEmpty && availableForSort.isNotEmpty;
+                  return OutlinedButton.icon(
+                    onPressed: canAdd
+                        ? () async {
+                            final box = btnContext.findRenderObject() as RenderBox?;
+                            final overlay = Navigator.of(context).overlay;
+                            if (box == null || overlay == null) return;
+                            final overlayBox = overlay.context.findRenderObject() as RenderBox?;
+                            if (overlayBox == null) return;
+                            final pos = box.localToGlobal(Offset.zero, ancestor: overlayBox);
+                            final size = box.size;
+                            final selected = await showMenu<String>(
+                              context: context,
+                              position: RelativeRect.fromLTRB(
+                                pos.dx,
+                                pos.dy + size.height,
+                                pos.dx + size.width,
+                                pos.dy + size.height + 200,
+                              ),
+                              items: availableForSort
+                                  .map((c) => PopupMenuItem<String>(value: c.id, child: Text(c.label)))
+                                  .toList(),
+                            );
+                            if (selected != null && mounted) addRule(selected);
+                          }
+                        : null,
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Add rule'),
+                    style: OutlinedButton.styleFrom(minimumSize: const Size(0, 32)),
+                  );
+                },
+              ),
               TextButton.icon(
                 onPressed: hasSelection ? removeSelected : null,
                 icon: const Icon(UiIcons.close, size: 18),
