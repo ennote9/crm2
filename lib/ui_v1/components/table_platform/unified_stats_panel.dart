@@ -60,19 +60,22 @@ class UnifiedStatsPanel<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final tokens = Theme.of(context).brightness == Brightness.dark ? UiV1Tokens.dark : UiV1Tokens.light;
     final s = tokens.spacing;
 
     final ids = selectedMetricIds.isEmpty
         ? metricDefinitions.map((m) => m.id).toList()
         : selectedMetricIds;
+    final defById = {for (final d in metricDefinitions) d.id: d};
     final children = <Widget>[];
     var first = true;
-    for (final def in metricDefinitions) {
-      if (!ids.contains(def.id)) continue;
+    for (final id in ids) {
+      final def = defById[id];
+      if (def == null) continue;
       if (!first) children.add(SizedBox(width: s.lg));
       first = false;
-      children.add(_MetricCard(label: def.label, value: values[def.id] ?? '0'));
+      children.add(_MetricCard(label: def.label, value: values[id] ?? '0'));
     }
     if (children.isEmpty) return const SizedBox.shrink();
 
@@ -81,9 +84,9 @@ class UnifiedStatsPanel<T> extends StatelessWidget {
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: s.xl, vertical: s.sm),
         decoration: BoxDecoration(
-          color: tokens.colors.surfaceAlt,
+          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
           border: Border(
-            bottom: BorderSide(color: tokens.colors.border.withValues(alpha: 0.8)),
+            bottom: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.2)),
           ),
         ),
         child: Row(
