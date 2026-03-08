@@ -1668,6 +1668,15 @@ class _SortSectionState<T> extends State<_SortSection<T>> {
   int? _selectedSortIndex;
 
   @override
+  void didUpdateWidget(covariant _SortSection<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final sorts = widget.draftState.sorts;
+    if (_selectedSortIndex != null && (_selectedSortIndex! < 0 || _selectedSortIndex! >= sorts.length)) {
+      setState(() => _selectedSortIndex = null);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final tokens = Theme.of(context).brightness == Brightness.dark ? UiV1Tokens.dark : UiV1Tokens.light;
