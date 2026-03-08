@@ -84,7 +84,7 @@ class UnifiedStatsPanel<T> extends StatelessWidget {
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: s.xl, vertical: s.sm),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.26),
           border: Border(
             bottom: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.2)),
           ),

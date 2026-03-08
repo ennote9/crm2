@@ -17,9 +17,237 @@ import 'unified_stats_metric.dart';
 const String _kHeaderMyViews = '__header_my__';
 const String _kHeaderSharedViews = '__header_shared__';
 
-/// Unified empty state for View tab sections. Compact, enterprise style.
-class _ViewEmptyState extends StatelessWidget {
-  const _ViewEmptyState({
+/// List block variant for selectable rows: primary (main list) or secondary (aux list).
+enum _ViewListVariant { primary, secondary }
+
+// --- Tier A: shell (header, command bar, tab strip, footer) — built inline in build().
+// --- Tier B: section surfaces — _ViewShellSection, _ViewCardBlock, _ViewSectionActionBar, _ViewEmptyBlock.
+// --- Tier C: item surfaces — _ViewSelectableRow, filter condition cards.
+
+/// Section wrapper: same vertical rhythm for every tab (title → content → optional action bar).
+class _ViewShellSection extends StatelessWidget {
+  const _ViewShellSection({
+    required this.title,
+    required this.content,
+    this.actionBar,
+  });
+
+  final String title;
+  final Widget content;
+  final Widget? actionBar;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tokens = Theme.of(context).brightness == Brightness.dark ? UiV1Tokens.dark : UiV1Tokens.light;
+    final s = tokens.spacing;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          title,
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
+        SizedBox(height: s.sm),
+        content,
+        if (actionBar != null) ...[
+          SizedBox(height: s.sm),
+          actionBar!,
+        ],
+      ],
+    );
+  }
+}
+
+/// Tier B block for primary/secondary content (lists, empty, control blocks). Single visual contract.
+class _ViewCardBlock extends StatelessWidget {
+  const _ViewCardBlock({
+    required this.child,
+    this.variant = _ViewCardVariant.primary,
+  });
+
+  final Widget child;
+  final _ViewCardVariant variant;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tokens = Theme.of(context).brightness == Brightness.dark ? UiV1Tokens.dark : UiV1Tokens.light;
+    final s = tokens.spacing;
+    final radius = tokens.radius;
+    final isSecondary = variant == _ViewCardVariant.secondary;
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(s.sm),
+      decoration: BoxDecoration(
+        color: isSecondary
+            ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.32)
+            : theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(radius.sm),
+        border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.22)),
+      ),
+      child: child,
+    );
+  }
+}
+
+enum _ViewCardVariant { primary, secondary }
+
+/// Tier C: single contract for selectable rows (visible/hidden column, sort rule, selected/available metric).
+class _ViewSelectableRow extends StatelessWidget {
+  const _ViewSelectableRow({
+    required this.listVariant,
+    required this.isSelected,
+    required this.onTap,
+    this.leading,
+    this.leadingIcon,
+    required this.label,
+    this.trailingLabel,
+    this.trailing,
+  });
+
+  final _ViewListVariant listVariant;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final Widget? leading;
+  final IconData? leadingIcon;
+  final String label;
+  final String? trailingLabel;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tokens = Theme.of(context).brightness == Brightness.dark ? UiV1Tokens.dark : UiV1Tokens.light;
+    final s = tokens.spacing;
+    final radius = tokens.radius;
+    final isSecondaryList = listVariant == _ViewListVariant.secondary;
+
+    Color bgColor;
+    Color borderColor;
+    double borderWidth;
+    List<BoxShadow>? shadow;
+    Color iconColor;
+    FontWeight labelWeight;
+    Color? labelColor;
+
+    if (isSelected && !isSecondaryList) {
+      bgColor = theme.colorScheme.primaryContainer.withValues(alpha: 0.5);
+      borderColor = theme.colorScheme.primary;
+      borderWidth = 2;
+      shadow = [
+        BoxShadow(
+          color: theme.colorScheme.primary.withValues(alpha: 0.1),
+          blurRadius: 4,
+          offset: const Offset(0, 1),
+        ),
+      ];
+      iconColor = theme.colorScheme.primary;
+      labelWeight = FontWeight.w600;
+      labelColor = null;
+    } else if (isSelected && isSecondaryList) {
+      bgColor = theme.colorScheme.secondaryContainer.withValues(alpha: 0.45);
+      borderColor = theme.colorScheme.secondary;
+      borderWidth = 2;
+      shadow = null;
+      iconColor = theme.colorScheme.secondary;
+      labelWeight = FontWeight.w500;
+      labelColor = theme.colorScheme.onSecondaryContainer;
+    } else {
+      bgColor = isSecondaryList ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.24) : theme.colorScheme.surface;
+      borderColor = isSecondaryList ? theme.colorScheme.outline.withValues(alpha: 0.16) : theme.colorScheme.outline.withValues(alpha: 0.2);
+      borderWidth = 1;
+      shadow = null;
+      iconColor = theme.colorScheme.onSurfaceVariant;
+      labelWeight = FontWeight.normal;
+      labelColor = null;
+    }
+
+    Widget leadingWidget = leading ?? (leadingIcon != null ? Icon(leadingIcon, size: 20, color: iconColor) : const SizedBox.shrink());
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: s.sm),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(radius.xs),
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.sm),
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(radius.xs),
+            border: Border.all(color: borderColor, width: borderWidth),
+            boxShadow: shadow,
+          ),
+          child: Row(
+            children: [
+              leadingWidget,
+              if (leadingWidget != const SizedBox.shrink()) SizedBox(width: s.sm),
+              Expanded(
+                child: Text(
+                  label,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: labelWeight,
+                    color: labelColor,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (trailingLabel != null)
+                Text(
+                  trailingLabel!,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontWeight: isSelected ? FontWeight.w500 : null,
+                  ),
+                ),
+              if (trailing != null) ...[
+                if (trailingLabel != null) SizedBox(width: s.sm),
+                trailing!,
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Tier B: section-level action bar. One visual family for all tab action bars.
+class _ViewSectionActionBar extends StatelessWidget {
+  const _ViewSectionActionBar({required this.actions});
+
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tokens = Theme.of(context).brightness == Brightness.dark ? UiV1Tokens.dark : UiV1Tokens.light;
+    final s = tokens.spacing;
+    final radius = tokens.radius;
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.sm),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.34),
+        borderRadius: BorderRadius.circular(radius.sm),
+        border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.22)),
+      ),
+      child: Wrap(
+        spacing: s.sm,
+        runSpacing: s.xs,
+        alignment: WrapAlignment.start,
+        children: actions,
+      ),
+    );
+  }
+}
+
+/// Tier B: unified empty state block. Same icon/title/subtitle rhythm everywhere.
+class _ViewEmptyBlock extends StatelessWidget {
+  const _ViewEmptyBlock({
     required this.icon,
     required this.title,
     required this.subtitle,
@@ -39,9 +267,9 @@ class _ViewEmptyState extends StatelessWidget {
       alignment: Alignment.center,
       padding: EdgeInsets.symmetric(vertical: s.lg, horizontal: s.md),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.28),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.32),
         borderRadius: BorderRadius.circular(radius.sm),
-        border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.2)),
+        border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.22)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -63,35 +291,6 @@ class _ViewEmptyState extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// Unified action bar for View tab sections. Same style across Filters, Columns, Sort, Statistics.
-class _ViewActionBar extends StatelessWidget {
-  const _ViewActionBar({required this.actions});
-
-  final List<Widget> actions;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final tokens = Theme.of(context).brightness == Brightness.dark ? UiV1Tokens.dark : UiV1Tokens.light;
-    final s = tokens.spacing;
-    final radius = tokens.radius;
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.sm),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.26),
-        borderRadius: BorderRadius.circular(radius.sm),
-        border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.2)),
-      ),
-      child: Wrap(
-        spacing: s.sm,
-        runSpacing: s.xs,
-        alignment: WrapAlignment.start,
-        children: actions,
       ),
     );
   }
@@ -387,13 +586,13 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Header: row1 = title + selector + close; row2 = actions
+        // L1. HEADER — View label, view selector, close
         Container(
           width: double.infinity,
-          padding: EdgeInsets.fromLTRB(s.md, s.sm, s.xs, s.sm),
+          padding: EdgeInsets.fromLTRB(s.md, s.md, s.md, s.sm),
           decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-            border: Border(bottom: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.25))),
+            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.38),
+            border: Border(bottom: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.22))),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -404,9 +603,9 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
                 children: [
                   Text(
                     'View',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.onSurface,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   SizedBox(width: s.sm),
@@ -457,12 +656,13 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
               ),
               if (hasCrud) ...[
                 SizedBox(height: s.sm),
+                // L2. COMMAND BAR — Save / Save as | Delete / Shared / Reset
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
+                  padding: EdgeInsets.symmetric(horizontal: s.md, vertical: s.sm),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.25),
-                    borderRadius: BorderRadius.circular(tokens.radius.xs),
-                    border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.18)),
+                    color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.34),
+                    borderRadius: BorderRadius.circular(tokens.radius.sm),
+                    border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.22)),
                   ),
                   child: Row(
                     children: [
@@ -477,6 +677,7 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
                         style: OutlinedButton.styleFrom(minimumSize: const Size(0, 32), padding: EdgeInsets.symmetric(horizontal: s.sm)),
                         child: const Text('Save as'),
                       ),
+                      SizedBox(width: s.lg),
                       const Spacer(),
                       TextButton(
                         onPressed: _canDeleteCurrentView ? _deleteCurrentView : null,
@@ -516,12 +717,12 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
             ],
           ),
         ),
-        // Tab strip
+        // L3. TAB NAVIGATION — Filters / Columns / Sort / Statistics
         Container(
-          padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xxs),
+          padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.sm),
           decoration: BoxDecoration(
-            color: theme.colorScheme.surface.withValues(alpha: 0.5),
-            border: Border(bottom: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.2))),
+            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.32),
+            border: Border(bottom: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.22))),
           ),
           child: Row(
             children: [
@@ -532,19 +733,19 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
             ],
           ),
         ),
-        // Content
+        // L4. TAB CONTENT — single active tab, built from _ViewShellSection + primitives
         Expanded(
           child: SingleChildScrollView(
             padding: EdgeInsets.symmetric(horizontal: s.md, vertical: s.sm),
             child: _buildCurrentTabContent(),
           ),
         ),
-        // Bottom action bar: Cancel / Apply
+        // L5. FOOTER ACTIONS — Cancel, Apply
         Container(
-          padding: EdgeInsets.fromLTRB(s.md, s.sm, s.md, s.sm),
+          padding: EdgeInsets.symmetric(horizontal: s.md, vertical: s.sm),
           decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-            border: Border(top: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.2))),
+            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.34),
+            border: Border(top: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.22))),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,
@@ -576,6 +777,7 @@ class _UnifiedViewPanelContentState<T> extends State<UnifiedViewPanelContent<T>>
       onPressed: () => setState(() => _selectedTabIndex = index),
       style: TextButton.styleFrom(
         foregroundColor: selected ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
+        backgroundColor: selected ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5) : null,
         padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
         minimumSize: const Size(0, 36),
         shape: RoundedRectangleBorder(
@@ -829,7 +1031,7 @@ class _InlineFilterRowState<T> extends State<_InlineFilterRow<T>> {
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(radius.sm),
-        border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.22)),
+        border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.24)),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -955,7 +1157,7 @@ class _InlineFilterRowState<T> extends State<_InlineFilterRow<T>> {
               decoration: BoxDecoration(
                 color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.22),
                 border: Border(
-                  top: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.2)),
+                  top: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.22)),
                 ),
               ),
               child: Column(
@@ -1315,85 +1517,78 @@ class _FiltersSection<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final tokens = Theme.of(context).brightness == Brightness.dark ? UiV1Tokens.dark : UiV1Tokens.light;
-    final s = tokens.spacing;
     final config = controller.config;
     final filters = draftState.filters;
     final filterableColumns = config.columns.where((c) => c.filterable && c.valueGetter != null).toList();
     final filterableColumnIds = filterableColumns.map((c) => c.id).toList();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          'Filter conditions',
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: theme.colorScheme.onSurface,
-          ),
-        ),
-        SizedBox(height: s.sm),
-        if (filters.isEmpty && filterableColumns.isNotEmpty)
-          _ViewEmptyState(
-            icon: Icons.filter_list,
-            title: 'No filter conditions',
-            subtitle: 'Add a condition below.',
+    final content = filters.isEmpty && filterableColumns.isNotEmpty
+        ? _ViewCardBlock(
+            variant: _ViewCardVariant.primary,
+            child: _ViewEmptyBlock(
+              icon: Icons.filter_list,
+              title: 'No filter conditions',
+              subtitle: 'Add a condition below.',
+            ),
           )
-        else if (filters.isNotEmpty) ...[
-          ...filters.map((f) {
-            return _InlineFilterRow<T>(
-                key: ValueKey(f.identity),
-                descriptor: f,
-                config: config,
-                fullList: fullList,
-                filterableColumnIds: filterableColumnIds,
-                onChanged: (d) {
-                  if (d == null) {
-                    onDraftChanged(draftState.removeFilter(filterId: f.identity));
-                  } else {
-                    onDraftChanged(draftState.addOrReplaceFilter(d));
-                  }
-                },
-                onRemove: () {
-                  onDraftChanged(draftState.removeFilter(filterId: f.identity));
-                },
-              );
-          }),
-        ],
-        if (filterableColumns.isNotEmpty) ...[
-          SizedBox(height: s.sm),
-          _ViewActionBar(
-            actions: [
-              if (filters.isNotEmpty)
-                TextButton(
-                  onPressed: () {
-                    onDraftChanged(draftState.clearFilters());
-                  },
-                  style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
-                  child: Text(
-                    'Clear all filters',
-                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
+        : filters.isNotEmpty
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: filters.map((f) {
+                  return _InlineFilterRow<T>(
+                    key: ValueKey(f.identity),
+                    descriptor: f,
+                    config: config,
+                    fullList: fullList,
+                    filterableColumnIds: filterableColumnIds,
+                    onChanged: (d) {
+                      if (d == null) {
+                        onDraftChanged(draftState.removeFilter(filterId: f.identity));
+                      } else {
+                        onDraftChanged(draftState.addOrReplaceFilter(d));
+                      }
+                    },
+                    onRemove: () {
+                      onDraftChanged(draftState.removeFilter(filterId: f.identity));
+                    },
+                  );
+                }).toList(),
+              )
+            : const SizedBox.shrink();
+
+    return _ViewShellSection(
+      title: 'Filter conditions',
+      content: content,
+      actionBar: filterableColumns.isNotEmpty
+          ? _ViewSectionActionBar(
+              actions: [
+                if (filters.isNotEmpty)
+                  TextButton(
+                    onPressed: () => onDraftChanged(draftState.clearFilters()),
+                    style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
+                    child: Text(
+                      'Clear all filters',
+                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
+                    ),
                   ),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    final first = filterableColumns.first;
+                    final mode = _effectiveFilterMode(first);
+                    onDraftChanged(draftState.addOrReplaceFilter(UnifiedFilterDescriptor(
+                      columnId: first.id,
+                      operator: _defaultOperator(mode),
+                      id: 'f_${DateTime.now().millisecondsSinceEpoch}',
+                    )));
+                  },
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add condition'),
+                  style: OutlinedButton.styleFrom(minimumSize: const Size(0, 32)),
                 ),
-              OutlinedButton.icon(
-                onPressed: () {
-                  final first = filterableColumns.first;
-                  final mode = _effectiveFilterMode(first);
-                  onDraftChanged(draftState.addOrReplaceFilter(UnifiedFilterDescriptor(
-                    columnId: first.id,
-                    operator: _defaultOperator(mode),
-                    id: 'f_${DateTime.now().millisecondsSinceEpoch}',
-                  )));
-                },
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Add condition'),
-                style: OutlinedButton.styleFrom(minimumSize: const Size(0, 32)),
-              ),
-            ],
-          ),
-        ],
-      ],
+              ],
+            )
+          : null,
     );
   }
 }
@@ -1427,7 +1622,6 @@ class _ColumnsSectionState<T> extends State<_ColumnsSection<T>> {
     final visibleOrdered = order.where((id) => visibleIds.contains(id)).toList();
     final hiddenIds = order.where((id) => !visibleIds.contains(id)).toList();
     final defaultOrder = config.defaultVisibleColumnIds ?? config.columns.map((c) => c.id).toList();
-    final radius = tokens.radius;
     final selectedInVisible = _selectedColumnId != null && visibleIds.contains(_selectedColumnId);
     final selectedInHidden = _selectedColumnId != null && hiddenIds.contains(_selectedColumnId);
     final selectedIndex = selectedInVisible ? visibleOrdered.indexOf(_selectedColumnId!) : -1;
@@ -1479,215 +1673,123 @@ class _ColumnsSectionState<T> extends State<_ColumnsSection<T>> {
       setState(() => _selectedColumnId = null);
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          'Visible columns',
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: theme.colorScheme.onSurface,
-          ),
-        ),
-        SizedBox(height: s.sm),
-        if (visibleOrdered.isEmpty)
-          Padding(
-            padding: EdgeInsets.symmetric(vertical: s.xs),
-            child: _ViewEmptyState(
-              icon: Icons.view_column_outlined,
-              title: 'No visible columns',
-              subtitle: 'Use actions below to show columns.',
-            ),
+    final visibleContent = visibleOrdered.isEmpty
+        ? _ViewEmptyBlock(
+            icon: Icons.view_column_outlined,
+            title: 'No visible columns',
+            subtitle: 'Use actions below to show columns.',
           )
-        else
-          Column(
+        : Column(
             mainAxisSize: MainAxisSize.min,
-            children: [
-              for (var i = 0; i < visibleOrdered.length; i++)
-                _buildVisibleColumnRow(visibleOrdered[i], config, theme, s, radius),
-            ],
-          ),
-        SizedBox(height: s.sm),
-        _ViewActionBar(
-          actions: [
-            TextButton.icon(
-              onPressed: selectedInVisible && selectedIndex > 0 ? moveUp : null,
-              icon: const Icon(Icons.arrow_upward, size: 18),
-              label: const Text('Move up'),
-              style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
-            ),
-            TextButton.icon(
-              onPressed: selectedInVisible && selectedIndex >= 0 && selectedIndex < visibleOrdered.length - 1 ? moveDown : null,
-              icon: const Icon(Icons.arrow_downward, size: 18),
-              label: const Text('Move down'),
-              style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
-            ),
-            TextButton.icon(
-              onPressed: selectedInVisible ? hideSelected : null,
-              icon: const Icon(Icons.visibility_off, size: 18),
-              label: const Text('Hide'),
-              style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
-            ),
-            TextButton.icon(
-              onPressed: selectedInHidden ? showSelected : null,
-              icon: const Icon(Icons.visibility, size: 18),
-              label: const Text('Show'),
-              style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
-            ),
-            SizedBox(width: s.md),
-            TextButton(
-              onPressed: () {
-                widget.onDraftChanged(widget.draftState.copyWithAsCustom(
-                  visibleColumnIds: List.from(defaultOrder),
-                  columnOrder: List.from(defaultOrder),
-                ));
-                setState(() => _selectedColumnId = null);
-              },
-              style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
-              child: const Text('Restore default'),
-            ),
-          ],
-        ),
-        SizedBox(height: s.sm),
-        Text(
-          'Hidden columns',
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: theme.colorScheme.onSurface,
-          ),
-        ),
-        SizedBox(height: s.xs),
-        if (hiddenIds.isEmpty)
-          Padding(
-            padding: EdgeInsets.symmetric(vertical: s.xs),
-            child: _ViewEmptyState(
-              icon: Icons.visibility_off_outlined,
-              title: 'No hidden columns',
-              subtitle: 'Hidden columns appear here when you hide them above.',
-            ),
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: visibleOrdered.map((columnId) {
+              final column = _columnById(config, columnId);
+              if (column == null) return const SizedBox.shrink();
+              return _ViewSelectableRow(
+                listVariant: _ViewListVariant.primary,
+                isSelected: _selectedColumnId == columnId,
+                onTap: () => setState(() => _selectedColumnId = columnId),
+                leadingIcon: Icons.view_column_outlined,
+                label: column.label,
+              );
+            }).toList(),
+          );
+
+    final hiddenContent = hiddenIds.isEmpty
+        ? _ViewEmptyBlock(
+            icon: Icons.visibility_off_outlined,
+            title: 'No hidden columns',
+            subtitle: 'Hidden columns appear here when you hide them above.',
           )
-        else
-          Column(
+        : Column(
             mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final columnId in hiddenIds)
-                _buildHiddenColumnRow(columnId, config, order, visibleIds, theme, s, radius),
-            ],
-          ),
-      ],
-    );
-  }
-
-  Widget _buildHiddenColumnRow(String columnId, UnifiedTableConfig<T> config, List<String> order, Set<String> visibleIds, ThemeData theme, UiV1SpacingTokens s, UiV1RadiusTokens radius) {
-    final column = _columnById(config, columnId);
-    if (column == null) return const SizedBox.shrink();
-    final selected = _selectedColumnId == columnId;
-    return InkWell(
-      onTap: () => setState(() => _selectedColumnId = columnId),
-      borderRadius: BorderRadius.circular(radius.xs),
-      child: Container(
-        margin: EdgeInsets.only(bottom: s.sm),
-        padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
-        decoration: BoxDecoration(
-          color: selected
-              ? theme.colorScheme.secondaryContainer.withValues(alpha: 0.45)
-              : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.24),
-          borderRadius: BorderRadius.circular(radius.xs),
-          border: Border.all(
-            color: selected ? theme.colorScheme.secondary : theme.colorScheme.outline.withValues(alpha: 0.16),
-            width: selected ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              Icons.visibility_off_outlined,
-              size: 20,
-              color: selected ? theme.colorScheme.secondary : theme.colorScheme.onSurfaceVariant,
-            ),
-            SizedBox(width: s.sm),
-            Expanded(
-              child: Text(
-                column.label,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontWeight: selected ? FontWeight.w500 : null,
-                  color: selected ? theme.colorScheme.onSecondaryContainer : null,
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                final next = Set<String>.from(visibleIds)..add(columnId);
-                final visibleOrderedNew = order.where((id) => next.contains(id)).toList();
-                widget.onDraftChanged(widget.draftState.copyWithAsCustom(
-                  visibleColumnIds: visibleOrderedNew,
-                  columnOrder: order,
-                ));
-                if (_selectedColumnId == columnId) _selectedColumnId = null;
-                setState(() {});
-              },
-              style: TextButton.styleFrom(
-                minimumSize: const Size(0, 28),
-                padding: EdgeInsets.symmetric(horizontal: s.xs),
-                foregroundColor: theme.colorScheme.onSurfaceVariant,
-              ),
-              child: const Text('Show'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildVisibleColumnRow(String columnId, UnifiedTableConfig<T> config, ThemeData theme, UiV1SpacingTokens s, UiV1RadiusTokens radius) {
-    final column = _columnById(config, columnId);
-    if (column == null) return const SizedBox.shrink();
-    final selected = _selectedColumnId == columnId;
-    return InkWell(
-      onTap: () => setState(() => _selectedColumnId = columnId),
-      borderRadius: BorderRadius.circular(radius.xs),
-      child: Container(
-        margin: EdgeInsets.only(bottom: s.sm),
-        padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.sm),
-        decoration: BoxDecoration(
-          color: selected
-              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
-              : theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(radius.xs),
-          border: Border.all(
-            color: selected ? theme.colorScheme.primary : theme.colorScheme.outline.withValues(alpha: 0.2),
-            width: selected ? 2 : 1,
-          ),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.08),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: hiddenIds.map((columnId) {
+              final column = _columnById(config, columnId);
+              if (column == null) return const SizedBox.shrink();
+              return _ViewSelectableRow(
+                listVariant: _ViewListVariant.secondary,
+                isSelected: _selectedColumnId == columnId,
+                onTap: () => setState(() => _selectedColumnId = columnId),
+                leadingIcon: Icons.visibility_off_outlined,
+                label: column.label,
+                trailing: TextButton(
+                  onPressed: () {
+                    final next = Set<String>.from(visibleIds)..add(columnId);
+                    final visibleOrderedNew = order.where((id) => next.contains(id)).toList();
+                    widget.onDraftChanged(widget.draftState.copyWithAsCustom(
+                      visibleColumnIds: visibleOrderedNew,
+                      columnOrder: order,
+                    ));
+                    setState(() {
+                      if (_selectedColumnId == columnId) _selectedColumnId = null;
+                    });
+                  },
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(0, 28),
+                    padding: EdgeInsets.symmetric(horizontal: s.xs),
+                    foregroundColor: theme.colorScheme.onSurfaceVariant,
                   ),
-                ]
-              : null,
-        ),
-        child: Row(
-          children: [
-            Icon(
-              Icons.view_column_outlined,
-              size: 20,
-              color: selected ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
-            ),
-            SizedBox(width: s.sm),
-            Expanded(
-              child: Text(
-                column.label,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                  child: const Text('Show'),
                 ),
+              );
+            }).toList(),
+          );
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _ViewShellSection(
+          title: 'Visible columns',
+          content: _ViewCardBlock(variant: _ViewCardVariant.primary, child: visibleContent),
+          actionBar: _ViewSectionActionBar(
+            actions: [
+              TextButton.icon(
+                onPressed: selectedInVisible && selectedIndex > 0 ? moveUp : null,
+                icon: const Icon(Icons.arrow_upward, size: 18),
+                label: const Text('Move up'),
+                style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
               ),
-            ),
-          ],
+              TextButton.icon(
+                onPressed: selectedInVisible && selectedIndex >= 0 && selectedIndex < visibleOrdered.length - 1 ? moveDown : null,
+                icon: const Icon(Icons.arrow_downward, size: 18),
+                label: const Text('Move down'),
+                style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
+              ),
+              TextButton.icon(
+                onPressed: selectedInVisible ? hideSelected : null,
+                icon: const Icon(Icons.visibility_off, size: 18),
+                label: const Text('Hide'),
+                style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
+              ),
+              TextButton.icon(
+                onPressed: selectedInHidden ? showSelected : null,
+                icon: const Icon(Icons.visibility, size: 18),
+                label: const Text('Show'),
+                style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
+              ),
+              SizedBox(width: s.md),
+              TextButton(
+                onPressed: () {
+                  widget.onDraftChanged(widget.draftState.copyWithAsCustom(
+                    visibleColumnIds: List.from(defaultOrder),
+                    columnOrder: List.from(defaultOrder),
+                  ));
+                  setState(() => _selectedColumnId = null);
+                },
+                style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
+                child: const Text('Restore default'),
+              ),
+            ],
+          ),
         ),
-      ),
+        SizedBox(height: s.lg),
+        _ViewShellSection(
+          title: 'Hidden columns',
+          content: _ViewCardBlock(variant: _ViewCardVariant.secondary, child: hiddenContent),
+        ),
+      ],
     );
   }
 }
@@ -1709,12 +1811,15 @@ class _SortSection<T> extends StatefulWidget {
 
 class _SortSectionState<T> extends State<_SortSection<T>> {
   int? _selectedSortIndex;
+  final MenuController _addRuleMenuController = MenuController();
 
   @override
   void didUpdateWidget(covariant _SortSection<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
     final sorts = widget.draftState.sorts;
-    if (_selectedSortIndex != null && (_selectedSortIndex! < 0 || _selectedSortIndex! >= sorts.length)) {
+    final outOfRange = _selectedSortIndex != null &&
+        (_selectedSortIndex! < 0 || _selectedSortIndex! >= sorts.length);
+    if (sorts.isEmpty || outOfRange) {
       setState(() => _selectedSortIndex = null);
     }
   }
@@ -1770,97 +1875,108 @@ class _SortSectionState<T> extends State<_SortSection<T>> {
       setState(() {});
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          'Sort rules',
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: theme.colorScheme.onSurface,
-          ),
-        ),
-        SizedBox(height: s.sm),
-        if (sorts.isEmpty)
-          _ViewEmptyState(
+    final content = sorts.isEmpty
+        ? _ViewEmptyBlock(
             icon: Icons.sort,
             title: 'No sort rules',
             subtitle: 'Add a rule below.',
           )
-        else
-          Column(
+        : Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              for (var i = 0; i < sorts.length; i++)
-                _buildSortRuleRow(i, sorts[i], config, theme, s, radius),
+              for (var i = 0; i < sorts.length; i++) ...[
+                _ViewSelectableRow(
+                  listVariant: _ViewListVariant.primary,
+                  isSelected: _selectedSortIndex == i,
+                  onTap: () => setState(() => _selectedSortIndex = i),
+                  leading: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 24,
+                        height: 24,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.8),
+                          borderRadius: BorderRadius.circular(radius.xs),
+                        ),
+                        child: Text('${i + 1}', style: theme.textTheme.labelSmall),
+                      ),
+                      SizedBox(width: s.sm),
+                      Icon(
+                        sorts[i].ascending ? Icons.arrow_upward : Icons.arrow_downward,
+                        size: 18,
+                        color: _selectedSortIndex == i ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ],
+                  ),
+                  label: _columnLabel(config, sorts[i].columnId),
+                  trailingLabel: sorts[i].ascending ? 'Asc' : 'Desc',
+                ),
+              ],
             ],
-          ),
-        SizedBox(height: s.sm),
-        _ViewActionBar(
-          actions: [
-            Builder(
-              builder: (btnContext) {
-                final canAdd = sortableColumns.isNotEmpty && availableForSort.isNotEmpty;
-                return OutlinedButton.icon(
-                  onPressed: canAdd
-                      ? () async {
-                          final box = btnContext.findRenderObject() as RenderBox?;
-                          final overlay = Navigator.of(context).overlay;
-                          if (box == null || overlay == null) return;
-                          final overlayBox = overlay.context.findRenderObject() as RenderBox?;
-                          if (overlayBox == null) return;
-                          final pos = box.localToGlobal(Offset.zero, ancestor: overlayBox);
-                          final size = box.size;
-                          final selected = await showMenu<String>(
-                            context: context,
-                            position: RelativeRect.fromLTRB(
-                              pos.dx,
-                              pos.dy + size.height,
-                              pos.dx + size.width,
-                              pos.dy + size.height + 200,
-                            ),
-                            items: availableForSort
-                                .map((c) => PopupMenuItem<String>(value: c.id, child: Text(c.label)))
-                                .toList(),
-                          );
-                          if (selected != null && mounted) addRule(selected);
-                        }
+          );
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _ViewShellSection(
+          title: 'Sort rules',
+          content: _ViewCardBlock(variant: _ViewCardVariant.primary, child: content),
+          actionBar: _ViewSectionActionBar(
+            actions: [
+              MenuAnchor(
+                controller: _addRuleMenuController,
+                menuChildren: [
+                  for (final c in availableForSort)
+                    MenuItemButton(
+                      onPressed: () {
+                        addRule(c.id);
+                        _addRuleMenuController.close();
+                      },
+                      child: Text(c.label),
+                    ),
+                ],
+                child: OutlinedButton.icon(
+                  onPressed: (sortableColumns.isNotEmpty && availableForSort.isNotEmpty)
+                      ? () => _addRuleMenuController.open()
                       : null,
                   icon: const Icon(Icons.add, size: 18),
                   label: const Text('Add rule'),
                   style: OutlinedButton.styleFrom(minimumSize: const Size(0, 32)),
-                );
-              },
-            ),
-            TextButton.icon(
-              onPressed: hasSelection ? removeSelected : null,
-              icon: const Icon(UiIcons.close, size: 18),
-              label: const Text('Remove'),
-              style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
-            ),
-            TextButton.icon(
-              onPressed: hasSelection && _selectedSortIndex! > 0 ? moveUp : null,
-              icon: const Icon(Icons.arrow_upward, size: 18),
-              label: const Text('Up'),
-              style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
-            ),
-            TextButton.icon(
-              onPressed: hasSelection && _selectedSortIndex! < sorts.length - 1 ? moveDown : null,
-              icon: const Icon(Icons.arrow_downward, size: 18),
-              label: const Text('Down'),
-              style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
-            ),
-            TextButton.icon(
-              onPressed: hasSelection ? toggleDirection : null,
-              icon: Icon(
-                hasSelection && sorts[_selectedSortIndex!].ascending ? Icons.arrow_downward : Icons.arrow_upward,
-                size: 18,
+                ),
               ),
-              label: const Text('Toggle'),
-              style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
-            ),
-          ],
+              TextButton.icon(
+                onPressed: hasSelection ? removeSelected : null,
+                icon: const Icon(UiIcons.close, size: 18),
+                label: const Text('Remove'),
+                style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
+              ),
+              TextButton.icon(
+                onPressed: hasSelection && _selectedSortIndex! > 0 ? moveUp : null,
+                icon: const Icon(Icons.arrow_upward, size: 18),
+                label: const Text('Up'),
+                style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
+              ),
+              TextButton.icon(
+                onPressed: hasSelection && _selectedSortIndex! < sorts.length - 1 ? moveDown : null,
+                icon: const Icon(Icons.arrow_downward, size: 18),
+                label: const Text('Down'),
+                style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
+              ),
+              TextButton.icon(
+                onPressed: hasSelection ? toggleDirection : null,
+                icon: Icon(
+                  hasSelection && sorts[_selectedSortIndex!].ascending ? Icons.arrow_downward : Icons.arrow_upward,
+                  size: 18,
+                ),
+                label: const Text('Toggle'),
+                style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
+              ),
+            ],
+          ),
         ),
         if (sorts.isNotEmpty && availableForSort.isEmpty)
           Padding(
@@ -1871,58 +1987,6 @@ class _SortSectionState<T> extends State<_SortSection<T>> {
             ),
           ),
       ],
-    );
-  }
-
-  Widget _buildSortRuleRow(int i, UnifiedSortDescriptor sort, UnifiedTableConfig<T> config, ThemeData theme, UiV1SpacingTokens s, UiV1RadiusTokens radius) {
-    final columnLabel = _columnLabel(config, sort.columnId);
-    final selected = _selectedSortIndex == i;
-    return InkWell(
-      onTap: () => setState(() => _selectedSortIndex = i),
-      borderRadius: BorderRadius.circular(radius.xs),
-      child: Container(
-        margin: EdgeInsets.only(bottom: s.sm),
-        padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
-        decoration: BoxDecoration(
-          color: selected
-              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.55)
-              : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-          borderRadius: BorderRadius.circular(radius.xs),
-          border: Border.all(
-            color: selected ? theme.colorScheme.primary : theme.colorScheme.outline.withValues(alpha: 0.2),
-            width: selected ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 24,
-              height: 24,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(radius.xs),
-              ),
-              child: Text('${i + 1}', style: theme.textTheme.labelSmall),
-            ),
-            SizedBox(width: s.sm),
-            Expanded(
-              child: Text(
-                columnLabel,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  overflow: TextOverflow.ellipsis,
-                  fontWeight: selected ? FontWeight.w500 : null,
-                ),
-              ),
-            ),
-            SizedBox(width: s.sm),
-            Text(
-              sort.ascending ? 'Asc' : 'Desc',
-              style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -1958,7 +2022,6 @@ class _StatisticsSectionState<T> extends State<_StatisticsSection<T>> {
     final effectiveSelected = selectedIds.isEmpty ? metrics.map((x) => x.id).toList() : selectedIds;
     final selectedOrdered = effectiveSelected.where((id) => metrics.any((m) => m.id == id)).toList();
     final availableIds = metrics.map((m) => m.id).where((id) => !selectedOrdered.contains(id)).toList();
-    final radius = tokens.radius;
     final selectedIndex = _selectedMetricId != null ? selectedOrdered.indexOf(_selectedMetricId!) : -1;
     final hasSelection = selectedIndex >= 0;
 
@@ -1992,214 +2055,123 @@ class _StatisticsSectionState<T> extends State<_StatisticsSection<T>> {
       setState(() => _selectedAvailableMetricId = null);
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          'Statistics',
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: theme.colorScheme.onSurface,
-          ),
-        ),
-        SizedBox(height: s.sm),
-        Container(
-          padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.sm),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-            borderRadius: BorderRadius.circular(radius.sm),
-            border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.2)),
-          ),
-          child: Row(
-            children: [
-              Text('Show statistics', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
-              const Spacer(),
-              Switch(
-                value: statsVisible,
-                onChanged: (v) {
-                  widget.onDraftChanged(widget.draftState.copyWithAsCustom(statsVisible: v));
-                  setState(() {});
-                },
-              ),
-            ],
-          ),
-        ),
-        SizedBox(height: s.sm),
-        Text(
-          'Selected metrics',
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: theme.colorScheme.onSurface,
-          ),
-        ),
-        SizedBox(height: s.xs),
-        if (selectedOrdered.isEmpty)
-          _ViewEmptyState(
+    UnifiedStatsMetricDefinition<T>? metricById(String id) {
+      for (final x in metrics) {
+        if (x.id == id) return x;
+      }
+      return null;
+    }
+
+    final selectedContent = selectedOrdered.isEmpty
+        ? _ViewEmptyBlock(
             icon: Icons.bar_chart_outlined,
             title: 'No metrics selected',
             subtitle: 'Add from available below.',
           )
-        else
-          Column(
+        : Column(
             mainAxisSize: MainAxisSize.min,
-            children: [
-              for (var i = 0; i < selectedOrdered.length; i++)
-                _buildSelectedMetricRow(selectedOrdered[i], metrics, theme, s, radius),
-            ],
-          ),
-        SizedBox(height: s.sm),
-        _ViewActionBar(
-          actions: [
-            TextButton.icon(
-              onPressed: hasSelection && selectedIndex > 0 ? moveUp : null,
-              icon: const Icon(Icons.arrow_upward, size: 18),
-              label: const Text('Move up'),
-              style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
-            ),
-            TextButton.icon(
-              onPressed: hasSelection && selectedIndex >= 0 && selectedIndex < selectedOrdered.length - 1 ? moveDown : null,
-              icon: const Icon(Icons.arrow_downward, size: 18),
-              label: const Text('Move down'),
-              style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
-            ),
-            TextButton.icon(
-              onPressed: hasSelection ? removeSelected : null,
-              icon: const Icon(UiIcons.close, size: 18),
-              label: const Text('Remove'),
-              style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
-            ),
-          ],
-        ),
-        SizedBox(height: s.sm),
-        Text(
-          'Available metrics',
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: theme.colorScheme.onSurface,
-          ),
-        ),
-        SizedBox(height: s.xs),
-        if (availableIds.isEmpty)
-          _ViewEmptyState(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: selectedOrdered.map((metricId) {
+              final m = metricById(metricId);
+              if (m == null) return const SizedBox.shrink();
+              return _ViewSelectableRow(
+                listVariant: _ViewListVariant.primary,
+                isSelected: _selectedMetricId == m.id,
+                onTap: () => setState(() => _selectedMetricId = m.id),
+                leadingIcon: Icons.bar_chart_outlined,
+                label: m.label,
+              );
+            }).toList(),
+          );
+
+    final availableContent = availableIds.isEmpty
+        ? _ViewEmptyBlock(
             icon: Icons.add_circle_outline,
             title: 'No available metrics',
             subtitle: 'All metrics are in selected list.',
           )
-        else
-          Container(
-            padding: EdgeInsets.all(s.sm),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(radius.sm),
-              border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.2)),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: availableIds.map((metricId) {
-                UnifiedStatsMetricDefinition<T>? m;
-                for (final x in metrics) {
-                  if (x.id == metricId) { m = x; break; }
-                }
-                return m != null ? _buildAvailableMetricRow(m, theme, s, radius) : const SizedBox.shrink();
-              }).toList(),
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: availableIds.map((metricId) {
+              final m = metricById(metricId);
+              if (m == null) return const SizedBox.shrink();
+              return _ViewSelectableRow(
+                listVariant: _ViewListVariant.secondary,
+                isSelected: _selectedAvailableMetricId == m.id,
+                onTap: () => setState(() => _selectedAvailableMetricId = m.id),
+                leadingIcon: Icons.add_circle_outline,
+                label: m.label,
+              );
+            }).toList(),
+          );
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _ViewShellSection(
+          title: 'Statistics',
+          content: _ViewCardBlock(
+            variant: _ViewCardVariant.primary,
+            child: Row(
+              children: [
+                Text('Show statistics', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
+                const Spacer(),
+                Switch(
+                  value: statsVisible,
+                  onChanged: (v) {
+                    widget.onDraftChanged(widget.draftState.copyWithAsCustom(statsVisible: v));
+                    setState(() {});
+                  },
+                ),
+              ],
             ),
           ),
-        SizedBox(height: s.xs),
-        _ViewActionBar(
-          actions: [
-            OutlinedButton.icon(
-              onPressed: _selectedAvailableMetricId != null ? addSelectedAvailable : null,
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Add to selected'),
-              style: OutlinedButton.styleFrom(minimumSize: const Size(0, 32)),
-            ),
-          ],
+        ),
+        SizedBox(height: s.lg),
+        _ViewShellSection(
+          title: 'Selected metrics',
+          content: _ViewCardBlock(variant: _ViewCardVariant.primary, child: selectedContent),
+          actionBar: _ViewSectionActionBar(
+            actions: [
+              TextButton.icon(
+                onPressed: hasSelection && selectedIndex > 0 ? moveUp : null,
+                icon: const Icon(Icons.arrow_upward, size: 18),
+                label: const Text('Move up'),
+                style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
+              ),
+              TextButton.icon(
+                onPressed: hasSelection && selectedIndex >= 0 && selectedIndex < selectedOrdered.length - 1 ? moveDown : null,
+                icon: const Icon(Icons.arrow_downward, size: 18),
+                label: const Text('Move down'),
+                style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
+              ),
+              TextButton.icon(
+                onPressed: hasSelection ? removeSelected : null,
+                icon: const Icon(UiIcons.close, size: 18),
+                label: const Text('Remove'),
+                style: TextButton.styleFrom(minimumSize: const Size(0, 32)),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(height: s.lg),
+        _ViewShellSection(
+          title: 'Available metrics',
+          content: _ViewCardBlock(variant: _ViewCardVariant.secondary, child: availableContent),
+          actionBar: _ViewSectionActionBar(
+            actions: [
+              OutlinedButton.icon(
+                onPressed: _selectedAvailableMetricId != null ? addSelectedAvailable : null,
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Add to selected'),
+                style: OutlinedButton.styleFrom(minimumSize: const Size(0, 32)),
+              ),
+            ],
+          ),
         ),
       ],
-    );
-  }
-
-  Widget _buildSelectedMetricRow(String metricId, List<UnifiedStatsMetricDefinition<T>> metrics, ThemeData theme, UiV1SpacingTokens s, UiV1RadiusTokens radius) {
-    UnifiedStatsMetricDefinition<T>? m;
-    for (final x in metrics) {
-      if (x.id == metricId) { m = x; break; }
-    }
-    if (m == null) return const SizedBox.shrink();
-    final metric = m;
-    final selected = _selectedMetricId == metric.id;
-    return InkWell(
-      onTap: () => setState(() => _selectedMetricId = metric.id),
-      borderRadius: BorderRadius.circular(radius.xs),
-      child: Container(
-        margin: EdgeInsets.only(bottom: s.sm),
-        padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
-        decoration: BoxDecoration(
-          color: selected
-              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.55)
-              : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-          borderRadius: BorderRadius.circular(radius.xs),
-          border: Border.all(
-            color: selected ? theme.colorScheme.primary : theme.colorScheme.outline.withValues(alpha: 0.2),
-            width: selected ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              Icons.bar_chart_outlined,
-              size: 20,
-              color: selected ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
-            ),
-            SizedBox(width: s.sm),
-            Expanded(
-              child: Text(
-                metric.label,
-                style: theme.textTheme.bodySmall?.copyWith(fontWeight: selected ? FontWeight.w500 : null),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAvailableMetricRow(UnifiedStatsMetricDefinition<T> metric, ThemeData theme, UiV1SpacingTokens s, UiV1RadiusTokens radius) {
-    final selected = _selectedAvailableMetricId == metric.id;
-    return InkWell(
-      onTap: () => setState(() => _selectedAvailableMetricId = metric.id),
-      borderRadius: BorderRadius.circular(radius.xs),
-      child: Container(
-        margin: EdgeInsets.only(bottom: s.sm),
-        padding: EdgeInsets.symmetric(horizontal: s.sm, vertical: s.xs),
-        decoration: BoxDecoration(
-          color: selected
-              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.55)
-              : theme.colorScheme.surface.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(radius.xs),
-          border: Border.all(
-            color: selected ? theme.colorScheme.primary : theme.colorScheme.outline.withValues(alpha: 0.2),
-            width: selected ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              Icons.add_circle_outline,
-              size: 20,
-              color: selected ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
-            ),
-            SizedBox(width: s.sm),
-            Expanded(
-              child: Text(
-                metric.label,
-                style: theme.textTheme.bodySmall?.copyWith(fontWeight: selected ? FontWeight.w500 : null),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

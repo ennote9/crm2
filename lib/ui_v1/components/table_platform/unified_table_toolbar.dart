@@ -82,7 +82,7 @@ class UnifiedTableToolbar extends StatelessWidget {
           ),
         },
         child: Padding(
-          padding: EdgeInsets.fromLTRB(s.xl, s.sm, s.xl, s.xs),
+          padding: EdgeInsets.fromLTRB(s.xl, s.xs, s.xl, s.xs),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -205,17 +205,17 @@ class UnifiedTableToolbar extends StatelessWidget {
                 ],
               ),
               if (filterChips.isNotEmpty) ...[
-                SizedBox(height: s.xs),
+                SizedBox(height: s.xxs),
                 Wrap(
                   spacing: s.xxs,
                   runSpacing: s.xxs,
                   children: filterChips.map((c) => InputChip(
-                    label: Text(c.label, style: theme.textTheme.labelSmall?.copyWith(fontSize: 12)),
-                    deleteIcon: const Icon(UiIcons.close, size: 14),
+                    label: Text(c.label, style: theme.textTheme.labelSmall?.copyWith(fontSize: 11)),
+                    deleteIcon: const Icon(UiIcons.close, size: 12),
                     onDeleted: c.onRemove,
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.symmetric(horizontal: s.xs, vertical: 2),
+                    padding: EdgeInsets.symmetric(horizontal: s.xxs, vertical: 2),
                     labelPadding: EdgeInsets.zero,
                   )).toList(),
                 ),
